@@ -1,6 +1,6 @@
 # Bellatrexplorer: Random forest explainability toolbox based on Bellatrex
 
-<img src="fig/screenshot_dashboard.jpeg" alt="Dashboard Screenshot" style="max-width: 800px;"/>
+<img src="src/assets/screenshot_dashboard.jpeg" alt="Dashboard Screenshot" style="max-width: 800px;"/>
 
 ## Installation
 First of all, clone this repository in your place of preference:
