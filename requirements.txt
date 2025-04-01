@@ -5,3 +5,7 @@ plotly
 dash
 pandas
 scikit-learn
+flask-caching
+# seaborn
+# umap-learn
+# ipykernel
