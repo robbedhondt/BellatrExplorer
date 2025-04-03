@@ -4,12 +4,14 @@ import base64
 import time
 import pickle
 import numpy as np
+import scipy
 import pandas as pd
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import dash
 from dash import Dash, html, dash_table, dcc, Input, Output, State, callback, callback_context, Patch
 import plotly.express as px
+import plotly.graph_objects as go
 from flask_caching import Cache
 from bellatrex import BellatrexExplain
 from bellatrex.wrapper_class import pack_trained_ensemble
@@ -182,6 +184,86 @@ def init_rules_graph(rules):
     fig.update_yaxes(**shared_axes_params, showgrid=False, autorange="reversed")
     return fig
 
+def generate_feature_slider_impacts(rf, X, sample):
+    # TODO only needs the quantiles actually, can be precomputed so we don't need
+    # to pass around the full X dataframe all the time
+    # TODO also make it more efficient by initializing the plot only at 
+
+    # GENERATE THE PREDICTIONS
+    # Preallocate the neighborhood instances
+    step = 0.005
+    quantiles = np.arange(0, 1+step, step)
+    n_neighbors = len(quantiles)*X.shape[1] 
+    neighborhood = np.tile(sample, n_neighbors).reshape(n_neighbors, sample.shape[1])
+    neighborhood = pd.DataFrame(neighborhood, 
+        index=np.repeat(X.columns, len(quantiles)), columns=X.columns)
+
+    # Change feature values to quantiles
+    for col in X.columns:
+        neighborhood.loc[col,col] = np.quantile(X[col], quantiles)
+    sample_quantile = {
+        col: scipy.stats.percentileofscore(X[col], sample[col])[0] / 100
+        for col in X.columns
+    }
+
+    # Make predictions
+    y_pred = pd.Series(rf.predict(neighborhood), index=pd.MultiIndex.from_product(
+        [neighborhood.columns, quantiles], names=["Feature", "Quantile"])
+    )
+    y_pred_sample = rf.predict(sample)
+
+    # # GENERATE THE FIGURE
+    # fig = go.Figure()
+
+    # # Plot each feature effect
+    # for col in X.columns:
+    #     x_sample = sample_quantile[col]
+    #     y_sample = np.interp(x_sample, quantiles, y_pred[col])
+        
+    #     # Line plot
+    #     fig.add_trace(go.Scatter(
+    #         x=quantiles, y=y_pred[col], 
+    #         mode="lines", name=col
+    #     ))
+
+    #     # Highlight sample point
+    #     fig.add_trace(go.Scatter(
+    #         x=[x_sample], y=[y_sample], 
+    #         mode="markers", marker=dict(size=10), 
+    #         name=f"{col} sample"
+    #     ))
+
+    # Create the figure
+    fig = px.line(
+        y_pred.reset_index(name="Prediction"), 
+        x="Quantile", y="Prediction", color="Feature",
+        title="Univariate Feature Effects on Sample Prediction",
+        labels={"Quantile": "Quantile of 'neighbor' sample", "Prediction": "Prediction"},
+    )
+
+    # Add horizontal line for current sample
+    fig.add_trace(go.Scatter(
+        x=[0, 1], y=[y_pred_sample, y_pred_sample], 
+        mode="lines", line=dict(color="black", dash="dash"),
+        name="Current sample"
+    ))
+
+    # Add sample points for each feature
+    for col in X.columns:
+        x_sample = sample_quantile[col]
+        y_sample = np.interp(x_sample, quantiles, y_pred[col])
+        fig.add_scatter(x=[x_sample], y=[y_sample], mode="markers", marker=dict(size=10))
+
+    fig.update_layout(
+        xaxis_title="Quantile of 'neighbor' sample",
+        yaxis_title="Prediction of 'neighbor' sample",
+        legend_title="Feature",
+        xaxis=dict(range=[0,1]),
+        yaxis=dict(range=[np.min(y_pred), np.max(y_pred)]),
+        template="plotly_white"
+    )
+    return fig
+
 def model2hex(model):
     # Serialize model with pickle, append timestamp to ensure model is always
     # updated (even when exactly the same model is found)
@@ -220,6 +302,9 @@ def load_defaults():
               for slider in sliders}
     sample = pd.DataFrame(sample, index=[0])
 
+    # Generate slider impact graph
+    fig_slider_impact = generate_feature_slider_impacts(rf, X, sample)
+
     # Generate rules graph
     rules = generate_rules(rf, X.iloc[[0],:])
     fig_rules = init_rules_graph(rules)
@@ -236,6 +321,7 @@ def load_defaults():
         "target-options": df.columns,
         "task": "regression",
         "sliders": sliders,
+        "fig-slider": fig_slider_impact,
         "graph-rules": fig_rules,
         "fig-svg": svg,
         "df": df,
@@ -303,13 +389,13 @@ app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
             html.Div(className="infobox", children=[
                 html.H2("Instance selection"),
                 html.Div(id="sliders", children=defaults["sliders"]),
-                # *generate_sliders(df, target="norm-sound")
+                dcc.Graph(id="graph-slider-impact", figure=defaults["fig-slider"])
             ]),
         ]),
         # EXPLANATION: Bellatrex and rule paths
         html.Div(style={"width":"70%"}, children=[
             html.Div(className="infobox", children=[
-                html.H2("Rest of the forest"),
+                html.H2("All random forest rules"),
                 dcc.Graph(id="graph-rules", figure=defaults["graph-rules"]),
             ]),
             html.Div(className="infobox", children=[
@@ -502,6 +588,23 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     cache.set("expl", expl)
     plot_and_save_btrex(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return sliders, data_table, fig_all_rules, time.time()
+
+
+@callback(
+    Output("graph-slider-impact", "figure"),
+    Input({'type': 'slider', 'index': dash.ALL}, 'value'),
+    State({'type': 'slider', 'index': dash.ALL}, 'id'),
+    State('dataframe', 'data'),
+    State('target-selector', 'value'),
+)
+def update_neighbor_plot(slider_values, slider_ids, json_data, target):
+    df = pd.read_json(io.StringIO(json_data), orient='split')
+    X, y = split_input_output(df, target)
+    rf = cache.get("model")
+    features = [slider['index'] for slider in slider_ids]
+    sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
+    fig = generate_feature_slider_impacts(rf, X, sample)
+    return fig
 
 @callback(
     Output('graph-rules', 'figure'),
