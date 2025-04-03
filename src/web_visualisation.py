@@ -1414,5 +1414,5 @@ def plot_density_plotly(preds_distr, selected_prediction=None, baseline=None):
 
 ### RUN THE APP
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8124)
 
