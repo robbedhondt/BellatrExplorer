@@ -623,7 +623,7 @@ def train_random_forest(is_disabled, json_data, target, task): # , config):
         Output('sliders', 'children'), 
         Output('data-table', 'data'),
         Output('graph-rules', 'figure', allow_duplicate=True), 
-        Output('cache-btrex', 'data')
+        Output('svg-btrex', 'srcDoc', allow_duplicate=True),
     ],
     Input('cache-model', 'data'),
     State('dataframe', 'data'),
@@ -661,8 +661,9 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     expl = fit_btrex(btrex, sample)
     cache.set("btrex", btrex)
     cache.set("expl", expl)
-    plot_and_save_btrex(expl, y_pred_train=np.array(y_pred_train), plot_max_depth=max_depth)
-    return sliders, data_table, fig_all_rules, time.time()
+    y_pred = rf.predict(X)
+    svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=5)
+    return sliders, data_table, fig_all_rules, svg
 
 @callback(
     Output("graph-slider-impact", "figure"),
