@@ -685,6 +685,7 @@ def update_btrex_graph(_, slider_values, slider_ids, max_depth, y_pred_train):
 
     # Generate bellatrex figure
     expl = fit_btrex(btrex, sample)
+    cache.set("expl", expl)
     svg = plot_btrex_svg(expl, y_pred_train=np.array(y_pred_train), plot_max_depth=max_depth)
     return svg
 
