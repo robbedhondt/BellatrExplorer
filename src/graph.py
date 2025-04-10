@@ -77,26 +77,30 @@ def generate_sliders(df, target="norm-sound"):
     # Construct the sliders
     sliders = []
     for feature in X.columns:
+        quantiles = np.quantile(X[feature], np.linspace(0, 1, 100))
         minval = X[feature].min()
         maxval = X[feature].max()
         # selval = X[feature].mean() # selected value
         selval = X[feature].iloc[0]
+        slider_component = dcc.Slider(
+            min=minval, max=maxval, value=selval, step=None, #step=(maxval - minval)/100, 
+            id={'type': 'slider', 'index': feature},
+            # # Error loading layout:
+            # marks={minval: f'{minval:.2f}',
+            #        selval: f'{selval:.2f}',
+            #        maxval: f'{maxval:.2f}',},
+            # marks=None,
+            marks={v:"" for v in quantiles},
+            # Use the tooltip to indicate the current value
+            tooltip={"placement": "bottom", "always_visible": True, 
+                # "style": {"backgroundColor":"red", "color":"blue", "border": "2px solid blue"}
+            },
+            updatemode='mouseup',
+        )
         sliders.append(html.Div([
             html.Label([feature]),
-            dcc.Slider(
-                min=minval, max=maxval, step=(maxval - minval)/100, value=selval,
-                id={'type': 'slider', 'index': feature},
-                # # Error loading layout:
-                # marks={minval: f'{minval:.2f}',
-                #        selval: f'{selval:.2f}',
-                #        maxval: f'{maxval:.2f}',},
-                marks=None,
-                # Use the tooltip to indicate the current value
-                tooltip={"placement": "bottom", "always_visible": True, 
-                    # "style": {"backgroundColor":"red", "color":"blue", "border": "2px solid blue"}
-                },
-                updatemode='mouseup',
-            )
+            html.Div(id={'type': 'slider-gradient', 'index': feature}, 
+                className="slider-gradient", children=[slider_component])
         ])) #, style={'marginBottom': '20px'}))
     # Return the sliders
     return sliders
@@ -184,11 +188,7 @@ def init_rules_graph(rules):
     fig.update_yaxes(**shared_axes_params, showgrid=False, autorange="reversed")
     return fig
 
-def generate_feature_slider_impacts(rf, X, sample):
-    # TODO only needs the quantiles actually, can be precomputed so we don't need
-    # to pass around the full X dataframe all the time
-    # TODO also make it more efficient by initializing the plot only at 
-
+def generate_neighborhood_predictions(rf, X, sample):
     # GENERATE THE PREDICTIONS
     # Preallocate the neighborhood instances
     step = 0.005
@@ -201,43 +201,33 @@ def generate_feature_slider_impacts(rf, X, sample):
     # Change feature values to quantiles
     for col in X.columns:
         neighborhood.loc[col,col] = np.quantile(X[col], quantiles)
-    sample_quantile = {
-        col: scipy.stats.percentileofscore(X[col], sample[col])[0] / 100
-        for col in X.columns
-    }
 
     # Make predictions
     y_pred = pd.Series(rf.predict(neighborhood), index=pd.MultiIndex.from_product(
         [neighborhood.columns, quantiles], names=["Feature", "Quantile"])
     )
+    return y_pred    
+
+def generate_feature_slider_impacts(rf, X, sample, y_pred):
+    """
+    y_pred = y_pred_neighborhood
+    """
+    # TODO only needs the quantiles actually, can be precomputed so we don't need
+    # to pass around the full X dataframe all the time
+    # TODO also make it more efficient by initializing the plot only at dataset change
+
     y_pred_sample = rf.predict(sample)
-
-    # # GENERATE THE FIGURE
-    # fig = go.Figure()
-
-    # # Plot each feature effect
-    # for col in X.columns:
-    #     x_sample = sample_quantile[col]
-    #     y_sample = np.interp(x_sample, quantiles, y_pred[col])
-        
-    #     # Line plot
-    #     fig.add_trace(go.Scatter(
-    #         x=quantiles, y=y_pred[col], 
-    #         mode="lines", name=col
-    #     ))
-
-    #     # Highlight sample point
-    #     fig.add_trace(go.Scatter(
-    #         x=[x_sample], y=[y_sample], 
-    #         mode="markers", marker=dict(size=10), 
-    #         name=f"{col} sample"
-    #     ))
+    features  = y_pred.index.get_level_values("Feature" ).unique()
+    quantiles = y_pred.index.get_level_values("Quantile").unique()
+    sample_quantile = {
+        col: scipy.stats.percentileofscore(X[col], sample[col])[0] / 100
+        for col in features
+    }
 
     # Create the figure
     fig = px.line(
         y_pred.reset_index(name="Prediction"), 
         x="Quantile", y="Prediction", color="Feature",
-        title="Univariate Feature Effects on Sample Prediction",
         labels={"Quantile": "Quantile of 'neighbor' sample", "Prediction": "Prediction"},
     )
 
@@ -248,19 +238,27 @@ def generate_feature_slider_impacts(rf, X, sample):
         name="Current sample"
     ))
 
-    # Add sample points for each feature
-    for col in X.columns:
-        x_sample = sample_quantile[col]
-        y_sample = np.interp(x_sample, quantiles, y_pred[col])
-        fig.add_scatter(x=[x_sample], y=[y_sample], mode="markers", marker=dict(size=10))
+    # # Add sample points for each feature
+    # for col in features:
+    #     x_sample = sample_quantile[col]
+    #     y_sample = np.interp(x_sample, quantiles, y_pred[col])
+    #     fig.add_scatter(x=[x_sample], y=[y_sample], mode="markers", marker=dict(size=10), name=col)
 
+    # Change some other plot settings
     fig.update_layout(
         xaxis_title="Quantile of 'neighbor' sample",
         yaxis_title="Prediction of 'neighbor' sample",
         legend_title="Feature",
+        title="Univariate Feature Effects on Sample Prediction",
         xaxis=dict(range=[0,1]),
         yaxis=dict(range=[np.min(y_pred), np.max(y_pred)]),
-        template="plotly_white"
+        template="plotly_white",
+        legend=dict(
+            orientation="h",
+            # entrywidth=70,
+            y=-0.2, yanchor="top",
+            x=1.00, xanchor="right",
+        ),
     )
     return fig
 
@@ -275,6 +273,18 @@ def hex2model(serialized_model):
     # Unload model with pickle
     return pickle.loads(bytes.fromhex(serialized_model))
 
+def get_slider_gradient(vmin, vmax, values=None):
+    import matplotlib
+    import matplotlib.colors as mcolors
+    
+    if values is None:
+        values = np.linspace(vmin, vmax, 100)
+
+    colormap = plt.get_cmap('viridis')  # Choose any Matplotlib colormap
+    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)  # Normalize to slider range
+    """Generate a CSS linear gradient from the colormap."""
+    colors = [mcolors.to_hex(colormap(norm(i))) for i in values]
+    return f"linear-gradient(to right, {', '.join(colors)})"
 
 #   ___       _ _   _       _ _          _   _             
 #  |_ _|_ __ (_) |_(_) __ _| (_)______ _| |_(_) ___  _ __  
@@ -298,12 +308,13 @@ def load_defaults():
 
     # Generate sliders and sample to explain
     sliders = generate_sliders(df, target="norm-sound")
-    sample = {slider.children[1].id["index"]: slider.children[1].value
+    sample = {slider.children[1].children[0].id["index"]: slider.children[1].children[0].value
               for slider in sliders}
     sample = pd.DataFrame(sample, index=[0])
 
     # Generate slider impact graph
-    fig_slider_impact = generate_feature_slider_impacts(rf, X, sample)
+    y_pred_neighborhood = generate_neighborhood_predictions(rf, X, sample)
+    fig_slider_impact = generate_feature_slider_impacts(rf, X, sample, y_pred_neighborhood)
 
     # Generate rules graph
     rules = generate_rules(rf, X.iloc[[0],:])
@@ -375,10 +386,12 @@ app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
         html.Div(style={"width":"30%"}, children=[
             html.Div(className="infobox", children=[
                 html.H2("Modeling"),
-                # html.Button("Upload data", className="button", 
-                #     children=dcc.Upload(id='upload-dataset', multiple=False)),
-                dcc.Upload(id='upload-dataset', multiple=False, #contents=default_file,
-                    children=html.Button('Upload data', className="button")),
+                html.Button(className="button", 
+                    children=dcc.Upload(id='upload-dataset', multiple=False, children="Upload data")),
+                # dcc.Upload(id='upload-dataset', multiple=False, #contents=default_file,
+                #     children=html.Button('Upload data', className="button")),
+                #     # children=html.Div(['Drag&drop or ', html.A('select a file')]),
+                #     # className="uploadzone"),
                 dcc.Dropdown(id="target-selector", multi=False, 
                     options=defaults["target-options"], value=defaults["target"]),
                 dcc.Dropdown(id="learning-task", options=["regression", 
@@ -572,7 +585,7 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     data_table = df.to_dict('records')
     # Generate sliders and sample
     sliders = generate_sliders(df, target)
-    sample = {slider.children[1].id["index"]: slider.children[1].value
+    sample = {slider.children[1].children[0].id["index"]: slider.children[1].children[0].value
               for slider in sliders}
     sample = pd.DataFrame(sample, index=[0])
     # Generate rules
@@ -592,6 +605,7 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
 
 @callback(
     Output("graph-slider-impact", "figure"),
+    Output({'type': 'slider-gradient', 'index': dash.ALL}, 'style'),
     Input({'type': 'slider', 'index': dash.ALL}, 'value'),
     State({'type': 'slider', 'index': dash.ALL}, 'id'),
     State('dataframe', 'data'),
@@ -603,8 +617,19 @@ def update_neighbor_plot(slider_values, slider_ids, json_data, target):
     rf = cache.get("model")
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
-    fig = generate_feature_slider_impacts(rf, X, sample)
-    return fig
+    y_pred_neighborhood = generate_neighborhood_predictions(rf, X, sample)
+    # Generate figure with impacts
+    fig = generate_feature_slider_impacts(rf, X, sample, y_pred_neighborhood)
+    # Generate slider gradients
+    slider_gradients = []
+    for slider in slider_ids:
+        feature = slider['index']
+        minval = y.min()
+        maxval = y.max()
+        values = y_pred_neighborhood.loc[feature]
+        slider_gradients.append(
+            {"background": get_slider_gradient(minval, maxval, values)})
+    return fig, slider_gradients
 
 @callback(
     Output('graph-rules', 'figure'),

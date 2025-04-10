@@ -78,20 +78,51 @@ h2 {
     pointer-events: none; /* Prevents hover effects */
 }
 
+.uploadzone {
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    border-width: 1px;
+    border-style: dashed;
+    border-radius: 5px;
+    text-align: center;
+    margin: 10px;
+}
+
 .container {
     display: flex;
 }
 
 /* Customizing slider appearance */
 .rc-slider-track {
-    background-color: black;
+    background-color: white;
 }
 
-.rc-slider-dot-active {  
-    border-color: black;
-    border: solid 2px black;
+.rc-slider-rail {
+    background-color: white;
 }
 
+/* Dots AFTER the handle */
+.rc-slider-dot {
+    /* width: 1px !important;
+    height: 9px !important; */
+    background-color: white;
+    /* border-radius: 0 !important; */
+    border-color: gray;
+    /* border: solid 0.1px black; */
+    /* Trying to fix the alignment */
+    /* margin-left: -1px !important; */
+    /* transform: translateX(100%); */
+}
+
+/* Dots BEFORE the handle */
+.rc-slider-dot-active {
+    background-color: white;
+    border-color: gray;
+    /* border: solid 0.01px black; */
+}
+
+/* The handle itself */
 .rc-slider-handle {
     background-color: black;
     border-color: black;
@@ -103,6 +134,23 @@ h2 {
 
 .rc-slider-handle-active:active {
     border-color: black;
+}
+
+.rc-slider-mark-text {
+    /* font-size: 10px !important; */
+}
+
+/* For the custom div behind each slider */
+.slider-gradient {
+    height: 15px;
+    width: 100%;
+    border-radius: 4px;
+    margin-top: 10px;
+    margin-bottom: 30px;
+    /* # # Flexbox layout to vertically center the content (doesn't work) */
+    /* # "display": "flex", */
+    /* # "flexDirection": "row", */
+    /* # "align-items": "center", */
 }
 
 
