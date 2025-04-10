@@ -17,6 +17,7 @@ from bellatrex import BellatrexExplain
 from bellatrex.wrapper_class import pack_trained_ensemble
 from bellatrex.utilities import predict_helper
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sksurv.ensemble import RandomSurvivalForest
 
 # # Incorporate data
 # asset = lambda fname: os.path.join(os.path.dirname(__file__), "assets", fname)
@@ -263,11 +264,13 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     return fig
 
 def model2hex(model):
+    """[DEPRECATED] Too slow to serialize & transfer the model as json."""
     # Serialize model with pickle, append timestamp to ensure model is always
     # updated (even when exactly the same model is found)
     return pickle.dumps(model).hex() + f"_{time.time()}"
 
 def hex2model(serialized_model):
+    """[DEPRECATED] Too slow to serialize & transfer the model as json."""
     # First remove timestamp before deserializing
     serialized_model, _ = serialized_model.rsplit("_", 1)
     # Unload model with pickle
@@ -627,7 +630,7 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     # Generate data table
     if json_data is None:
         return dash.no_update, dash.no_update, dash.no_update
-    df = pd.read_json(json_data, orient='split')
+    df = pd.read_json(io.StringIO(json_data), orient='split')
     data_table = df.to_dict('records')
     # Generate sliders and sample
     sliders = generate_sliders(df, target)
@@ -645,7 +648,7 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     expl = fit_btrex(btrex, sample)
     cache.set("btrex", btrex)
     cache.set("expl", expl)
-    plot_and_save_btrex(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
+    plot_and_save_btrex(expl, y_pred_train=np.array(y_pred_train), plot_max_depth=max_depth)
     return sliders, data_table, fig_all_rules, time.time()
 
 @callback(

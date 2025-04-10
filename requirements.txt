@@ -9,3 +9,4 @@ flask-caching
 # seaborn
 # umap-learn
 # ipykernel
+scikit-survival
