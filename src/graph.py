@@ -537,27 +537,29 @@ def update_target_selector(json_data):
 
 @callback(
     Output('train-button', 'disabled' , allow_duplicate=True),
-    Output('train-button', 'className', allow_duplicate=True),
     Input('train-button', 'n_clicks'),
     prevent_initial_call=True
 )
 def disable_train_button(_):
     """Disable the training button when it is clicked."""
-    return True, "button disabled"
+    return True
 
 @callback(
-    Output('train-button', 'disabled' , allow_duplicate=True),
     Output('train-button', 'className', allow_duplicate=True),
-    Input('cache-model', 'data'),
+    Input('train-button', 'disabled'),
     prevent_initial_call=True
 )
-def enable_train_button(_):
-    """Enable the training button when model is stored."""
-    return False, "button"
+def change_train_button_style(is_disabled):
+    """Change styling of the training button based on disabled status."""
+    if is_disabled:
+        return "button disabled"
+    else:
+        return "button"
 
 @callback(
     Output('cache-model', 'data'),
     Output('pred-train', 'data'),
+    Output('train-button', 'disabled' , allow_duplicate=True),
     Output('user-feedback', 'children', allow_duplicate=True),
     Input('train-button', 'disabled'),
     State('dataframe', 'data'),
@@ -571,26 +573,34 @@ def train_random_forest(is_disabled, json_data, target, task): # , config):
     """
     # Button was set to "enabled", so no trigger for callback.
     if not is_disabled:
-        return dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
     # Parse json data
     if json_data is None:
-        return dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
     df = pd.read_json(io.StringIO(json_data), orient='split')
     # Train the random forest
     try:
         X, y = split_input_output(df, target)
+        y = y.squeeze()
         if task == "classification":
-            rf = RandomForestClassifier()
+            rf = RandomForestClassifier(random_state=42)
+            rf.fit(X, y)
+            y_pred_train = rf.predict_proba(X)
         elif task == "regression":
-            rf = RandomForestRegressor()
-        rf.fit(X, y)
-        y_pred_train = rf.predict(X)
+            rf = RandomForestRegressor(random_state=42)
+            rf.fit(X, y)
+            y_pred_train = rf.predict(X)
+        elif task == "survival analysis":
+            rf = RandomSurvivalForest(random_state=42)
+            y = Surv().from_arrays(y >= 0, np.abs(y)) # convert pos-neg to surv
+            rf.fit(X, y)
+            y_pred_train = rf.predict(X)
         cache.set("model", rf)
-        return time.time(), y_pred_train, "✅ Forest trained successfully!"
+        return time.time(), y_pred_train, False, "✅ Forest trained successfully!"
     except Exception as e:
         # Prevent softlock due to model fit failing
         print(f"[ERR]: {e}")
-        return dash.no_update, dash.no_update, f"❌ Error fitting model: {str(e)}"
+        return dash.no_update, dash.no_update, False, f"❌ Error fitting model: {str(e)}"
 
 @callback(
     [
