@@ -56,6 +56,12 @@ h2 {
     overflow: visible
 }
 
+.centered-content {
+    justify-content: center;
+    display: flex;
+    align-items: center;
+}
+
 .button {
     /* border: none; */
     border-radius: 10px;
@@ -91,6 +97,12 @@ h2 {
 
 .container {
     display: flex;
+}
+
+.container-selectionbox-with-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 /* Customizing slider appearance */

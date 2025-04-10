@@ -286,6 +286,26 @@ def get_slider_gradient(vmin, vmax, values=None):
     colors = [mcolors.to_hex(colormap(norm(i))) for i in values]
     return f"linear-gradient(to right, {', '.join(colors)})"
 
+def generate_sample_datasets():
+    import pandas as pd
+    from ucimlrepo import fetch_ucirepo 
+    from pathlib import Path 
+    from sklearn.datasets import fetch_california_housing
+
+    # WISCONSIN BREAST CANCER DATASET
+    breast_cancer_wisconsin_original = fetch_ucirepo(id=15) 
+    X = breast_cancer_wisconsin_original.data.features 
+    y = breast_cancer_wisconsin_original.data.targets 
+    # Some postprocessing
+    y = y.replace({2:"benign", 4:"malignant"})
+    df = pd.concat((X,y), axis=1)
+    df.to_csv(Path("assets/data/breast_cancer_wisconsin.csv"))
+
+    # CALIFORNIA HOUSING
+    df = fetch_california_housing(as_frame=True)#'data']
+    df = pd.concat((df["data"], df["target"]), axis=1)
+    df.to_csv(Path("assets/data/california_housing.csv"))
+
 #   ___       _ _   _       _ _          _   _             
 #  |_ _|_ __ (_) |_(_) __ _| (_)______ _| |_(_) ___  _ __  
 #   | || '_ \| | __| |/ _` | | |_  / _` | __| |/ _ \| '_ \ 
@@ -301,7 +321,7 @@ path_assets = os.path.join(os.path.dirname(__file__), "assets")
 # Initialize defaults for dataframe and figures
 def load_defaults():
     # Load data and fit forest
-    df = pd.read_csv(os.path.join(path_assets, "regress_tutorial.csv"))
+    df = pd.read_csv(os.path.join(path_assets, "data", "regress_tutorial.csv"))
     target = "norm-sound"
     X, y = split_input_output(df, target)
     rf = RandomForestRegressor(random_state=42).fit(X, y.squeeze())
@@ -367,17 +387,36 @@ app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
         html.Div(style={"width":"20%"}, children=[
             html.Div(className="infobox", children=[
                 html.H2("Modeling"),
-                html.Button(className="button", 
-                    children=dcc.Upload(id='upload-dataset', multiple=False, children="Upload data")),
-                # dcc.Upload(id='upload-dataset', multiple=False, #contents=default_file,
-                #     children=html.Button('Upload data', className="button")),
-                #     # children=html.Div(['Drag&drop or ', html.A('select a file')]),
-                #     # className="uploadzone"),
-                dcc.Dropdown(id="target-selector", multi=False, 
-                    options=defaults["target-options"], value=defaults["target"]),
-                dcc.Dropdown(id="learning-task", options=["regression", # TODO: make this a dcc.RadioItems?
-                    "classification", "survival analysis"], value=defaults["task"]),
-                html.Button('Fit forest', className="button", id='train-button'),
+                html.Div(className="container-selectionbox-with-label", children=[
+                    html.Label("Dataset:", htmlFor="dataset-selector"),
+                    dcc.Dropdown(id="dataset-selector", multi=False,
+                        options=[f for f in os.listdir(os.path.join(path_assets, "data")) if os.path.isfile(os.path.join(path_assets, "data", f))],
+                        value="regress_tutorial.csv", style={'flex': '1'}),
+                ]),
+                # TODO can be implemented in the dropdown as an "upload dataset" option? or is it better to keep this separate button?
+                html.Div(className="centered-content", style={"padding": "5px"}, children=[
+                    html.Div("or", style={"padding": "5px"}),
+                    html.Button(className="button", children=dcc.Upload(
+                        id='upload-dataset', multiple=False, children="upload a dataset")),
+                ]),
+                html.Div(className="container-selectionbox-with-label", children=[
+                    html.Label("Target:", htmlFor="target-selector"),
+                    dcc.Dropdown(id="target-selector", multi=False, 
+                        options=defaults["target-options"], value=defaults["target"],
+                        style={'flex': '1'}),
+                ]),
+                html.Div(className="container-selectionbox-with-label", children=[
+                    html.Label("Task:", htmlFor="learning-task"),
+                    # NOTE: This could also be a dcc.RadioItems
+                    dcc.Dropdown(id="learning-task", options=["regression",
+                        "classification", "survival analysis"], value=defaults["task"],
+                        style={'flex': '1'}),
+                ]),
+                html.Div(className="centered-content", style={"padding": "5px"}, children=[
+                    # dcc.Loading(delay_show=500, children=
+                        html.Button('Fit forest', className="button", id='train-button')
+                    # ),
+                ]),
                 html.Span(id="user-feedback"),
             ]),
             html.Div(className="infobox", children=[
@@ -434,23 +473,37 @@ app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
                                            
 @callback(
     Output('dataframe', 'data', allow_duplicate=True), 
-    Output('user-feedback', 'children'),
+    Output('user-feedback', 'children', allow_duplicate=True),
+    Output('dataset-selector', 'value'),
     Input('upload-dataset', 'contents'), 
     State('upload-dataset', 'filename'),
     prevent_initial_call=True
 )
 def parse_uploaded_data(contents, filename):
     if contents is None:
-        return dash.no_update, "❌ Please upload a CSV file."
+        return dash.no_update, "❌ Please upload a CSV file.", dash.no_update
     try:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
         df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
         df = df.to_json(date_format='iso', orient='split')
-        return df, "✅ File uploaded successfully!"
+        return df, "✅ File uploaded successfully!", None
     except Exception as e:
         print(f"[ERR]: {e}")
-        return dash.no_update, f"❌ Error reading file: {str(e)}"
+        return dash.no_update, f"❌ Error reading file: {str(e)}", dash.no_update
+
+@callback(
+    Output('dataframe', 'data', allow_duplicate=True), 
+    Output('user-feedback', 'children', allow_duplicate=True),
+    Input('dataset-selector', 'value'), 
+    prevent_initial_call=True
+)
+def load_default_dataset(fname):
+    if fname is None:
+        return dash.no_update, dash.no_update
+    df = pd.read_csv(os.path.join("assets", "data", fname))
+    df = df.to_json(date_format='iso', orient='split')
+    return df, "✅ File loaded successfully!"
 
 @callback(
     [Output('target-selector', 'options'), Output('target-selector', 'value')],
