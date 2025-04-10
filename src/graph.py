@@ -25,6 +25,30 @@ from sksurv.ensemble import RandomSurvivalForest
 # df = pd.read_csv("assets/regress_tutorial.csv")
 # df = pd.read_csv(asset("regress_tutorial.csv"))
 
+class RandomForest:
+    def __init__(self, task, **kwargs):
+        self.task = task
+        if task == "regression":
+            self.rf = RandomForestRegressor(**kwargs)
+        elif task == "classification":
+            self.rf = RandomForestClassifier(**kwargs)
+        elif task == "survival analysis":
+            self.rf = RandomSurvivalForest(**kwargs)
+        else:
+            raise Exception(f"Unknown task {task}")
+    
+    def fit(self, X, y):
+        y = y.squeeze()
+        # TODO input checking? if classification only binary for now; if regression only single-target
+        if self.task == "survival analysis":
+            y = Surv().from_arrays(y >= 0, np.abs(y)) # convert pos-neg to surv
+        self.rf.fit(X, y)
+    
+    def predict(self, X):
+        if self.task == "classification":
+            return rf.predict_proba(X)[:,1] # NOTE: you can use rf.classes_ 
+        return rf.predict(X)
+
 def split_input_output(df, target):
     if isinstance(target, str):
         target = [target]
@@ -66,7 +90,7 @@ def plot_btrex_svg(expl, y_pred_train=None, plot_max_depth=5):
     plt.close(fig)
     return img_io.getvalue()
 
-def generate_sliders(df, target="norm-sound"):
+def generate_sliders(df, target):
     """Generate slider components to edit sample data.
     
     CALLBACK: upon each upload of new dataset
@@ -302,12 +326,12 @@ def generate_sample_datasets():
     # Some postprocessing
     y = y.replace({2:"benign", 4:"malignant"})
     df = pd.concat((X,y), axis=1)
-    df.to_csv(Path("assets/data/breast_cancer_wisconsin.csv"))
+    df.to_csv(Path("assets/data/breast_cancer_wisconsin.csv"), index=False)
 
     # CALIFORNIA HOUSING
     df = fetch_california_housing(as_frame=True)#'data']
     df = pd.concat((df["data"], df["target"]), axis=1)
-    df.to_csv(Path("assets/data/california_housing.csv"))
+    df.to_csv(Path("assets/data/california_housing.csv"), index=False)
 
 #   ___       _ _   _       _ _          _   _             
 #  |_ _|_ __ (_) |_(_) __ _| (_)______ _| |_(_) ___  _ __  
@@ -327,7 +351,8 @@ def load_defaults():
     df = pd.read_csv(os.path.join(path_assets, "data", "regress_tutorial.csv"))
     target = "norm-sound"
     X, y = split_input_output(df, target)
-    rf = RandomForestRegressor(random_state=42).fit(X, y.squeeze())
+    rf = RandomForest(task="regression", random_state=42)
+    rf.fit(X, y)
 
     # Generate sliders and sample to explain
     sliders = generate_sliders(df, target="norm-sound")
@@ -420,7 +445,7 @@ app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
                         html.Button('Fit forest', className="button", id='train-button')
                     # ),
                 ]),
-                html.Span(id="user-feedback"),
+                html.Span(id="user-feedback", children="✅ Forest trained successfully!"),
             ]),
             html.Div(className="infobox", children=[
                 html.H2("Instance selection"),
@@ -464,8 +489,8 @@ app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
 
     # Event listeners
     dcc.Store(id="cache-model", storage_type="memory", data=time.time()),
-    dcc.Store(id="cache-btrex", storage_type="memory", data=time.time()),
-    dcc.Store(id="cache-expl" , storage_type="memory", data=time.time()),
+    # dcc.Store(id="cache-btrex", storage_type="memory", data=time.time()),
+    # dcc.Store(id="cache-expl" , storage_type="memory", data=time.time()),
 ])
 
 #    ____      _ _ _                _        
@@ -584,20 +609,8 @@ def train_random_forest(is_disabled, json_data, target, task): # , config):
     # Train the random forest
     try:
         X, y = split_input_output(df, target)
-        y = y.squeeze()
-        if task == "classification":
-            rf = RandomForestClassifier(random_state=42)
-            rf.fit(X, y)
-            y_pred_train = rf.predict_proba(X)
-        elif task == "regression":
-            rf = RandomForestRegressor(random_state=42)
-            rf.fit(X, y)
-            y_pred_train = rf.predict(X)
-        elif task == "survival analysis":
-            rf = RandomSurvivalForest(random_state=42)
-            y = Surv().from_arrays(y >= 0, np.abs(y)) # convert pos-neg to surv
-            rf.fit(X, y)
-            y_pred_train = rf.predict(X)
+        rf = RandomForest(task, random_state=42)
+        y_pred_train = rf.predict(X)
         cache.set("model", rf)
         return time.time(), y_pred_train, False, "✅ Forest trained successfully!"
     except Exception as e:
