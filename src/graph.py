@@ -357,25 +357,6 @@ cache.set("model", defaults["model"])
 cache.set("btrex", defaults["btrex"])
 cache.set("expl" , defaults["expl"])
 
-# TODO: write a demo app with 3 buttons to truly test the difference of these
-#       three methods
-# MODEL HANGING AROUND (with the line `rf = defaults["model"]`)
-# - Total 365 ms (compute 196, network 169)
-# - Data transfer
-#   download: 2271298
-#   upload:   1856500
-# MODEL SERIALIZED
-# - Total 941 ms (compute 533, network 407)
-# - Data transfer
-#   download: 2328515
-#   upload:  29270904
-# MODEL FROM STORAGE CACHE
-# - Total 485 ms (compute 270, network 215)
-# - Data transfer
-#   download: 128057
-#   upload  : 1326
-# rf = defaults["model"]
-
 # App layout
 app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
     # HEADER
@@ -383,7 +364,7 @@ app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
     # MAIN CONTENT
     html.Div(className="container", children=[
         # SETUP: modeling and instance selection
-        html.Div(style={"width":"30%"}, children=[
+        html.Div(style={"width":"20%"}, children=[
             html.Div(className="infobox", children=[
                 html.H2("Modeling"),
                 html.Button(className="button", 
@@ -394,7 +375,7 @@ app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
                 #     # className="uploadzone"),
                 dcc.Dropdown(id="target-selector", multi=False, 
                     options=defaults["target-options"], value=defaults["target"]),
-                dcc.Dropdown(id="learning-task", options=["regression", 
+                dcc.Dropdown(id="learning-task", options=["regression", # TODO: make this a dcc.RadioItems?
                     "classification", "survival analysis"], value=defaults["task"]),
                 html.Button('Fit forest', className="button", id='train-button'),
                 html.Span(id="user-feedback"),
@@ -406,11 +387,13 @@ app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
             ]),
         ]),
         # EXPLANATION: Bellatrex and rule paths
-        html.Div(style={"width":"70%"}, children=[
+        html.Div(style={"width":"40%"}, children=[
             html.Div(className="infobox", children=[
                 html.H2("All random forest rules"),
                 dcc.Graph(id="graph-rules", figure=defaults["graph-rules"]),
             ]),
+        ]),
+        html.Div(style={"width":"40%"}, children=[
             html.Div(className="infobox", children=[
                 html.H2("Bellatrex"),
                 dcc.Slider(1, 10, 1, value=5, id="slider-max-depth"),
@@ -601,7 +584,6 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     cache.set("expl", expl)
     plot_and_save_btrex(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return sliders, data_table, fig_all_rules, time.time()
-
 
 @callback(
     Output("graph-slider-impact", "figure"),
