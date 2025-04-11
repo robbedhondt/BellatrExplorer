@@ -161,8 +161,8 @@ def generate_rules(rf, sample):
     # sample = pd.DataFrame(sample)
     # assert len(sample.shape) > 1
     n_trees = len(rf.estimators_)
-    rule_txt = [[] for _ in range(n_trees)]
-    rule_val = [[] for _ in range(n_trees)]
+    rule_txt = [[] for _ in range(n_trees)] # TODO better prealloc behavior?
+    rule_val = [[] for _ in range(n_trees)] # TODO better prealloc behavior?
     for t in range(n_trees):
         path_tree = path_forest[start_tree_ind[t]:start_tree_ind[t+1]]
         tree = rf.estimators_[t]
@@ -190,6 +190,10 @@ def generate_rules(rf, sample):
 
     rule_txt = np.concatenate(rule_txt)
     rule_val = np.concatenate(rule_val).squeeze() # if single-output...
+    # NOTE: quick fix for classification, assuming binary...
+    if len(rule_val.shape) > 1:
+        rule_val = rule_val[:,1]
+    # ----
     rules = np.vstack((rule_indicator, rule_depth, rule_val, rule_txt)).T
     rules = pd.DataFrame(rules, columns=["tree","Depth","Prediction","rule"]) #, dtype=[int, int, float, str])
     rules["Prediction"] = rules["Prediction"].astype(float)
@@ -364,12 +368,16 @@ app = Dash(__name__) #, prevent_initial_callbacks="initial_duplicate")
 app.title = "BellatrExplorer"
 
 # Initialize defaults for dataframe and figures
-def load_defaults(scenario=0):
+def load_defaults(scenario=1):
     # Parameters
     if scenario == 0:
         fname = "regress_tutorial.csv"
         target = "norm-sound"
         task = "regression"
+    elif scenario == 1:
+        fname = "breast_cancer_wisconsin.csv"
+        target = "Class"
+        task = "classification"
     else:
         raise Exception(f"Invalid scenario '{scenario}'.")
 
@@ -616,8 +624,9 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     State({'type': 'slider', 'index': dash.ALL}, 'id'),
     State('dataframe', 'data'),
     State('target-selector', 'value'),
+    State('pred-train', 'data'),
 )
-def update_neighbor_plot(slider_values, slider_ids, json_data, target):
+def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_train):
     df = json2pandas(json_data)
     X, y = split_input_output(df, target)
     rf = cache.get("model")
@@ -630,8 +639,8 @@ def update_neighbor_plot(slider_values, slider_ids, json_data, target):
     slider_gradients = []
     for slider in slider_ids:
         feature = slider['index']
-        minval = y.min()
-        maxval = y.max()
+        minval = np.min(y_pred_train)
+        maxval = np.max(y_pred_train)
         values = y_pred_neighborhood.loc[feature]
         slider_gradients.append(
             {"background": get_slider_gradient(minval, maxval, values)})
