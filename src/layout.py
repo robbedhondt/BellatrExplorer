@@ -18,6 +18,7 @@ def make_app_layout(defaults):
             # EXPLANATION: Bellatrex and rule paths
             html.Div(style={"width":"40%"}, children=[
                 html.Div(className="infobox", children=get_rules_pane(defaults)),
+                html.Div(className="infobox", children=get_neighborhood_pane(defaults)),
             ]),
             html.Div(style={"width":"40%"}, children=[
                 html.Div(className="infobox", children=get_btrex_pane(defaults)),
@@ -85,7 +86,12 @@ def get_instance_pane(defaults):
     return [
         html.H2("Instance selection"),
         html.Div(id="sliders", children=defaults["sliders"]),
-        dcc.Graph(id="graph-slider-impact", figure=defaults["fig-slider"])
+    ]
+
+def get_neighborhood_pane(defaults):
+    return [
+        html.H2("Instance neighborhood"),
+        dcc.Graph(id="graph-slider-impact", figure=defaults["fig-slider"]),
     ]
 
 def get_rules_pane(defaults):
