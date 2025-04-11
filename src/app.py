@@ -481,22 +481,24 @@ def update_target_selector(json_data):
     # Update target selector (default = last column)
     return df.columns, df.columns[-1]
 
-# @callback(
-#     Output('learning-task', 'value'),
-#     Input('target-selector', 'value'),
-#     State('dataframe', 'data'),
-# )
-# def infer_learning_task(target, json_data):
-#     """Automatically infer the learning task from the selected target."""
-#     # Parse json data
-#     if json_data is None:
-#         return dash.no_update
-#     df = pd.read_json(json_data, orient='split')
-#     y = df[target] # NOTE: multi-target is a possibility!
-#     # Auto-infer the learning task
-#     y = y.convert_dtypes()
-#     if len(target) > 1:
-#         if (len(target) == 2) and (y.dtypes == [bool,float] or y.dtypes == [float, bool] or y.dtypes == [bool, int] or ...):
+@callback(
+    Output('learning-task', 'value'),
+    Input('target-selector', 'value'),
+    State('dataframe', 'data'),
+)
+def infer_learning_task(target, json_data):
+    """Automatically infer the learning task from the selected target."""
+    # Parse json data
+    if json_data is None:
+        return dash.no_update
+    df = pd.read_json(io.StringIO(json_data), orient='split')
+    y = df[target] # NOTE: what about multi-target?
+    # Auto-infer the learning task
+    y = y.convert_dtypes()
+    if y.nunique() == 2:
+        return "classification"
+    else:
+        return "regression"
 
 @callback(
     Output('train-button', 'disabled' , allow_duplicate=True),
