@@ -90,6 +90,8 @@ def plot_and_save_btrex(expl, y_pred_train=None, plot_max_depth=5):
 
 def plot_btrex_svg(expl, y_pred_train=None, plot_max_depth=5):
     """CALLBACK: on each slider change AND on each plot_max_depth change"""
+    if y_pred_train is not None:
+        y_pred_train = np.array(y_pred_train)
     fig, axs = expl.plot_visuals(
         plot_max_depth=plot_max_depth, preds_distr=y_pred_train, 
         conf_level=0.9, tot_digits=4, show=False
@@ -543,6 +545,7 @@ def train_random_forest(is_disabled, json_data, target, task): # , config):
     try:
         X, y = split_input_output(df, target)
         rf = RandomForest(task, random_state=42)
+        rf.fit(X, y)
         y_pred_train = rf.predict(X)
         cache.set("model", rf)
         return time.time(), y_pred_train, False, "✅ Forest trained successfully!"
@@ -594,7 +597,6 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     expl = fit_btrex(btrex, sample)
     cache.set("btrex", btrex)
     cache.set("expl", expl)
-    y_pred = rf.predict(X)
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=5)
     return sliders, data_table, fig_all_rules, svg
 
@@ -681,7 +683,7 @@ def update_btrex_graph(_, slider_values, slider_ids, max_depth, y_pred_train):
     # Generate bellatrex figure
     expl = fit_btrex(btrex, sample)
     cache.set("expl", expl)
-    svg = plot_btrex_svg(expl, y_pred_train=np.array(y_pred_train), plot_max_depth=max_depth)
+    svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return svg
 
 @callback(
@@ -692,7 +694,7 @@ def update_btrex_graph(_, slider_values, slider_ids, max_depth, y_pred_train):
 )
 def update_btrex_depth(max_depth, y_pred_train):
     expl = cache.get("expl")
-    svg = plot_btrex_svg(expl, y_pred_train=np.array(y_pred_train), plot_max_depth=max_depth)
+    svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return svg
 
 # @callback(
