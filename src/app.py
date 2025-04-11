@@ -18,6 +18,7 @@ from bellatrex.wrapper_class import pack_trained_ensemble
 from bellatrex.utilities import predict_helper
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sksurv.ensemble import RandomSurvivalForest
+from sksurv.util import Surv
 from constants import path_assets
 from layout import make_app_layout
 
@@ -36,7 +37,10 @@ class RandomForest:
         elif task == "classification":
             self.rf = RandomForestClassifier(**kwargs)
         elif task == "survival analysis":
-            self.rf = RandomSurvivalForest(**kwargs)
+            # TODO: low_memory would be nice so that the full survival curve
+            # isn't stored at every node anymore, but that doesn't work with
+            # bellatrex unfortunately
+            self.rf = RandomSurvivalForest(**kwargs) #, low_memory=True)
         else:
             raise Exception(f"Unknown task {task}")
     
@@ -69,8 +73,12 @@ def split_input_output(df, target):
 def init_btrex(rf, X, y):
     """CALLBACK: on each random forest fit"""
     rf_packed = pack_trained_ensemble(rf.rf)
+    setup = "auto"
+    if rf.task == "survival analysis":
+        # NOTE quick fix because our "y" is 1 target with pos=event and neg=censored; bellatrex doesn't auto-detect that setup
+        setup = "survival"
     btrex = BellatrexExplain(
-        rf_packed, set_up='auto', p_grid={"n_clusters": [1, 2, 3]}, verbose=-1)
+        rf_packed, set_up=setup, p_grid={"n_clusters": [1, 2, 3]}, verbose=-1)
     btrex.fit(X, y)
     return btrex
 
@@ -113,15 +121,16 @@ def generate_sliders(df, target):
     X = df.drop(columns=target)
     # Construct the sliders
     sliders = []
-    for feature in X.columns:
-        quantiles = np.quantile(X[feature], np.linspace(0, 1, 100))
-        minval = X[feature].min()
-        maxval = X[feature].max()
-        # selval = X[feature].mean() # selected value
-        selval = X[feature].iloc[0]
+    for col in X.columns:
+        feature = X[col].astype(float)
+        quantiles = np.quantile(feature, np.linspace(0, 1, 100))
+        minval = feature.min()
+        maxval = feature.max()
+        # selval = feature.mean() # selected value
+        selval = feature.iloc[0]
         slider_component = dcc.Slider(
             min=minval, max=maxval, value=selval, step=None, #step=(maxval - minval)/100, 
-            id={'type': 'slider', 'index': feature},
+            id={'type': 'slider', 'index': col},
             # # Error loading layout:
             # marks={minval: f'{minval:.2f}',
             #        selval: f'{selval:.2f}',
@@ -135,8 +144,8 @@ def generate_sliders(df, target):
             updatemode='mouseup',
         )
         sliders.append(html.Div([
-            html.Label([feature]),
-            html.Div(id={'type': 'slider-gradient', 'index': feature}, 
+            html.Label([col]),
+            html.Div(id={'type': 'slider-gradient', 'index': col}, 
                 className="slider-gradient", children=[slider_component])
         ])) #, style={'marginBottom': '20px'}))
     # Return the sliders
@@ -157,6 +166,7 @@ def generate_rules(rf, sample):
     """
     path_forest, start_tree_ind = rf.decision_path(sample)
 
+    sample = np.array(sample, dtype=np.float32) # necessary for survanal...
     sample = np.atleast_2d(sample)
     # sample = pd.DataFrame(sample)
     # assert len(sample.shape) > 1
@@ -182,7 +192,26 @@ def generate_rules(rf, sample):
             feature_name = rf.feature_names_in_[feature_index]
             rule_txt[t].append(
                 f"{feature_name} {threshold_sign} {tree.tree_.threshold[node_id]}")
-            rule_val[t].append(tree.tree_.value[node_id,:,:])
+            # n_nodes x n_outputs x n_classes
+            # for regression n_classes is always 1
+            # for survanal n_outputs is unique_times_
+            # --> average over all unique times to get global risk score?
+            # value = tree.tree_.value[node_id,:,:]
+            value = tree.tree_.value[node_id,:,-1]
+            # value = np.mean(tree.tree_.value[node_id,:,-1]) # for survival, this gives the mean probability over all the unique_times, so it's a crude integral of the survival function. for classification/regression, the mean does nothing.
+            def median_survival_time(surv_times, surv_probs):
+                idx = np.where(surv_probs <= 0.5)[0]
+                return surv_times[idx[0]] if len(idx) > 0 else surv_times[-1]
+            def mean_survival_time(surv_times, surv_probs):
+                # This method is more sensitive to censoring and requires the tail of the survival curve to be well-behaved or truncated appropriately.
+                return np.trapezoid(surv_probs, surv_times)
+            if rf.task == "survival analysis":
+                # value = median_survival_time(
+                value = mean_survival_time(
+                    surv_times=tree.unique_times_, # == rf.unique_times
+                    surv_probs=tree.tree_.value[node_id,:,-1],
+                ) 
+            rule_val[t].append(value)
     n_trees = len(rule_val)
     rule_len = [len(rule_val[t]) for t in range(n_trees)]
     rule_indicator = np.repeat(np.arange(n_trees), rule_len)
@@ -190,10 +219,6 @@ def generate_rules(rf, sample):
 
     rule_txt = np.concatenate(rule_txt)
     rule_val = np.concatenate(rule_val).squeeze() # if single-output...
-    # NOTE: quick fix for classification, assuming binary...
-    if len(rule_val.shape) > 1:
-        rule_val = rule_val[:,1]
-    # ----
     rules = np.vstack((rule_indicator, rule_depth, rule_val, rule_txt)).T
     rules = pd.DataFrame(rules, columns=["tree","Depth","Prediction","rule"]) #, dtype=[int, int, float, str])
     rules["Prediction"] = rules["Prediction"].astype(float)
@@ -237,12 +262,12 @@ def generate_neighborhood_predictions(rf, X, sample):
     quantiles = np.arange(0, 1+step, step)
     n_neighbors = len(quantiles)*X.shape[1] 
     neighborhood = np.tile(sample, n_neighbors).reshape(n_neighbors, sample.shape[1])
-    neighborhood = pd.DataFrame(neighborhood, 
+    neighborhood = pd.DataFrame(neighborhood, dtype=float,
         index=np.repeat(X.columns, len(quantiles)), columns=X.columns)
 
     # Change feature values to quantiles
     for col in X.columns:
-        neighborhood.loc[col,col] = np.quantile(X[col], quantiles)
+        neighborhood.loc[col,col] = np.quantile(X[col].astype(float), quantiles)
 
     # Make predictions
     y_pred = pd.Series(rf.predict(neighborhood), index=pd.MultiIndex.from_product(
@@ -341,6 +366,7 @@ def generate_sample_datasets():
     from ucimlrepo import fetch_ucirepo 
     from pathlib import Path 
     from sklearn.datasets import fetch_california_housing
+    from sksurv.datasets import load_flchain, load_whas500
 
     # WISCONSIN BREAST CANCER DATASET
     breast_cancer_wisconsin_original = fetch_ucirepo(id=15) 
@@ -356,6 +382,28 @@ def generate_sample_datasets():
     df = pd.concat((df["data"], df["target"]), axis=1)
     df.to_csv(Path("assets/data/california_housing.csv"), index=False)
 
+    # FLCHAIN
+    X, y = load_flchain()
+    X = X.drop(columns=["chapter","creatinine"])
+    X = X.convert_dtypes()
+    # for col in X.columns:
+    #     if X.dtypes[col] == "category":
+    #         X[col] = X[col].cat.codes
+    X.sex = X.sex.cat.rename_categories({"F":"1", "M":"0"}).astype(int).astype(bool)
+    X.mgus = X.mgus.cat.codes
+    X = X.rename(columns={"sex":"sex_is_female"})
+    y = y["futime"] * (y["death"].astype(int) * 2 - 1)
+    y = pd.Series(y, name="time_to_death")
+    df = pd.concat((X,y), axis=1)
+    df.to_csv(Path("assets/data/flchain.csv"), index=False)
+
+    # WHAS500
+    X, y = load_whas500()
+    y = y["lenfol"] * (y["fstat"].astype(int) * 2 - 1)
+    y = pd.Series(y, name="time_to_death")
+    df = pd.concat((X,y), axis=1)
+    df.to_csv(Path("assets/data/whas500.csv"), index=False)
+
 #   ___       _ _   _       _ _          _   _             
 #  |_ _|_ __ (_) |_(_) __ _| (_)______ _| |_(_) ___  _ __  
 #   | || '_ \| | __| |/ _` | | |_  / _` | __| |/ _ \| '_ \ 
@@ -368,7 +416,7 @@ app = Dash(__name__) #, prevent_initial_callbacks="initial_duplicate")
 app.title = "BellatrExplorer"
 
 # Initialize defaults for dataframe and figures
-def load_defaults(scenario=1):
+def load_defaults(scenario=2):
     # Parameters
     if scenario == 0:
         fname = "regress_tutorial.csv"
@@ -378,6 +426,10 @@ def load_defaults(scenario=1):
         fname = "breast_cancer_wisconsin.csv"
         target = "Class"
         task = "classification"
+    elif scenario == 2:
+        fname = "whas500.csv"
+        target = "time_to_death"
+        task = "survival analysis"
     else:
         raise Exception(f"Invalid scenario '{scenario}'.")
 
@@ -561,7 +613,7 @@ def train_random_forest(is_disabled, json_data, target, task): # , config):
     # Train the random forest
     try:
         X, y = split_input_output(df, target)
-        rf = RandomForest(task, random_state=42)
+        rf = RandomForest(task, random_state=42, max_depth=10)
         rf.fit(X, y)
         y_pred_train = rf.predict(X)
         cache.set("model", rf)
