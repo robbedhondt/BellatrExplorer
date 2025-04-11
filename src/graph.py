@@ -18,12 +18,15 @@ from bellatrex.wrapper_class import pack_trained_ensemble
 from bellatrex.utilities import predict_helper
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sksurv.ensemble import RandomSurvivalForest
+from constants import path_assets
+from layout import make_app_layout
 
-# # Incorporate data
-# asset = lambda fname: os.path.join(os.path.dirname(__file__), "assets", fname)
-# df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/gapminder2007.csv')
-# df = pd.read_csv("assets/regress_tutorial.csv")
-# df = pd.read_csv(asset("regress_tutorial.csv"))
+#   _   _ _   _ _ _ _   _           
+#  | | | | |_(_) (_) |_(_) ___  ___ 
+#  | | | | __| | | | __| |/ _ \/ __|
+#  | |_| | |_| | | | |_| |  __/\__ \
+#   \___/ \__|_|_|_|\__|_|\___||___/
+                                  
 
 class RandomForest:
     def __init__(self, task, **kwargs):
@@ -162,10 +165,10 @@ def generate_rules(rf, sample):
         path_tree = path_forest[start_tree_ind[t]:start_tree_ind[t+1]]
         tree = rf.estimators_[t]
         # https://scikit-learn.org/stable/auto_examples/tree/plot_unveil_tree_structure.html#decision-path
-        path_tree = tree.decision_path(sample)
+        path_tree = tree.decision_path(sample) # TODO: why not from path_forest?
         leaf_id = tree.apply(sample)[0]
         node_index = path_tree.indices[path_tree.indptr[0] : path_tree.indptr[1]]
-        for node_id in node_index:
+        for node_id in node_index: # TODO: can probably be vectorized...
             if node_id == leaf_id:
                 continue
             if sample[0, tree.tree_.feature[node_id]] <= tree.tree_.threshold[node_id]:
@@ -350,12 +353,12 @@ def generate_sample_datasets():
 # Initialize the app
 app = Dash(__name__) #, prevent_initial_callbacks="initial_duplicate")
 app.title = "BellatrExplorer"
-path_assets = os.path.join(os.path.dirname(__file__), "assets")
 
 # Initialize defaults for dataframe and figures
 def load_defaults():
     # Load data and fit forest
-    df = pd.read_csv(os.path.join(path_assets, "data", "regress_tutorial.csv"))
+    fname = "regress_tutorial.csv"
+    df = pd.read_csv(os.path.join(path_assets, "data", fname))
     target = "norm-sound"
     X, y = split_input_output(df, target)
     rf = RandomForest(task="regression", random_state=42)
@@ -400,6 +403,8 @@ def load_defaults():
         # Trying out global state
         "model": rf,
         "y_pred_train": rf.predict(X),
+        # ...
+        "fname": fname,
     }
     return defaults
 defaults = load_defaults()
@@ -413,92 +418,7 @@ cache.set("btrex", defaults["btrex"])
 cache.set("expl" , defaults["expl"])
 
 # App layout
-app.layout = html.Div(style={"padding": "0px", "margin": "0px"}, children=[
-    # HEADER
-    html.H1("BellatrExplorer"),
-    # MAIN CONTENT
-    html.Div(className="container", children=[
-        # SETUP: modeling and instance selection
-        html.Div(style={"width":"20%"}, children=[
-            html.Div(className="infobox", children=[
-                html.H2("Modeling"),
-                html.Div(className="container-selectionbox-with-label", children=[
-                    html.Label("Dataset:", htmlFor="dataset-selector"),
-                    dcc.Dropdown(id="dataset-selector", multi=False,
-                        options=[f for f in os.listdir(os.path.join(path_assets, "data")) if os.path.isfile(os.path.join(path_assets, "data", f))],
-                        value="regress_tutorial.csv", style={'flex': '1'}),
-                ]),
-                # TODO can be implemented in the dropdown as an "upload dataset" option? or is it better to keep this separate button?
-                html.Div(className="centered-content", style={"padding": "5px"}, children=[
-                    html.Div("or", style={"padding": "5px"}),
-                    html.Button(className="button", children=dcc.Upload(
-                        id='upload-dataset', multiple=False, children="upload a dataset")),
-                ]),
-                html.Div(className="container-selectionbox-with-label", children=[
-                    html.Label("Target:", htmlFor="target-selector"),
-                    dcc.Dropdown(id="target-selector", multi=False, 
-                        options=defaults["target-options"], value=defaults["target"],
-                        style={'flex': '1'}),
-                ]),
-                html.Div(className="container-selectionbox-with-label", children=[
-                    html.Label("Task:", htmlFor="learning-task"),
-                    # NOTE: This could also be a dcc.RadioItems
-                    dcc.Dropdown(id="learning-task", options=["regression",
-                        "classification", "survival analysis"], value=defaults["task"],
-                        style={'flex': '1'}),
-                ]),
-                html.Div(className="centered-content", style={"padding": "5px"}, children=[
-                    # dcc.Loading(delay_show=500, children=
-                        html.Button('Fit forest', className="button", id='train-button')
-                    # ),
-                ]),
-                html.Span(id="user-feedback", children="✅ Forest trained successfully!"),
-            ]),
-            html.Div(className="infobox", children=[
-                html.H2("Instance selection"),
-                html.Div(id="sliders", children=defaults["sliders"]),
-                dcc.Graph(id="graph-slider-impact", figure=defaults["fig-slider"])
-            ]),
-        ]),
-        # EXPLANATION: Bellatrex and rule paths
-        html.Div(style={"width":"40%"}, children=[
-            html.Div(className="infobox", children=[
-                html.H2("All random forest rules"),
-                dcc.Graph(id="graph-rules", figure=defaults["graph-rules"]),
-            ]),
-        ]),
-        html.Div(style={"width":"40%"}, children=[
-            html.Div(className="infobox", children=[
-                html.H2("Bellatrex"),
-                dcc.Slider(1, 10, 1, value=5, id="slider-max-depth"),
-                html.Iframe(id="svg-btrex", srcDoc=defaults["fig-svg"], 
-                    style={
-                        'width':'100%', 'height':'800px', 
-                        'object-fit':'contain',
-                        "border": "none",  # Removes iframe border
-                        "overflow": "hidden",  # Hides scrollbars
-                    }),
-                # html.Img(id="graph-btrex", src=app.get_asset_url("tmp_btrex.png"), 
-                #     style={'width':'100%', 'max-height':'400px', 
-                #     'object-fit':'contain'}),
-            ]),
-        ]),
-    ]),
-    dash_table.DataTable(id="data-table", data=defaults["df"].to_dict('records'), page_size=10),
-    # Data stored on the client side to be used across multiple callbacks:
-    dcc.Store(id='dataframe', storage_type='memory', data=defaults["json-df"]  ),
-    # dcc.Store(id='model', storage_type='memory', data=model2hex(defaults["hex-model"])),
-    # dcc.Store(id='btrex', storage_type='memory', data=model2hex(defaults["btrex"]    )),
-    # dcc.Store(id='expl' , storage_type='memory', data=model2hex(defaults["expl"]     )),
-    dcc.Store(id='rules'    , storage_type='memory', data=defaults["rules"]    ),
-    # dcc.Store(id='svg-btrex', storage_type='memory', data=defaults["fig-svg"]),
-    dcc.Store(id="pred-train", storage_type="memory", data=defaults["y_pred_train"]),
-
-    # Event listeners
-    dcc.Store(id="cache-model", storage_type="memory", data=time.time()),
-    # dcc.Store(id="cache-btrex", storage_type="memory", data=time.time()),
-    # dcc.Store(id="cache-expl" , storage_type="memory", data=time.time()),
-])
+app.layout = make_app_layout(defaults)
 
 #    ____      _ _ _                _        
 #   / ___|__ _| | | |__   __ _  ___| | _____ 
