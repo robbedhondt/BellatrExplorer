@@ -416,7 +416,7 @@ app = Dash(__name__) #, prevent_initial_callbacks="initial_duplicate")
 app.title = "BellatrExplorer"
 
 # Initialize defaults for dataframe and figures
-def load_defaults(scenario=2):
+def load_defaults(scenario=0):
     # Parameters
     if scenario == 0:
         fname = "regress_tutorial.csv"

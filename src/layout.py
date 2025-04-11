@@ -43,7 +43,18 @@ def make_app_layout(defaults):
     ])
 
 def get_header():
-    return html.H1("BellatrExplorer")
+    return html.Div(className="container", style={"alignItems":"flex-start"}, children=[
+        html.Div(className="header-content", children=[
+            html.H1("BellatrExplorer"), 
+            html.Div(style={"textAlign":"left", "margin":"10px"}, children=[
+                "Bellatrex publication: ",
+                html.A("DOI 10.1109/ACCESS.2023.3268866", href="https://doi.org/10.1109/ACCESS.2023.3268866")
+            ])
+        ]),
+        html.Div(className="logos", children=[
+            html.Img(src="assets/logos/combined.png", style={'height': '100pt', "margin":"10px"}),
+        ]),
+    ])
 
 def get_modeling_pane(defaults):
     def make_labeled_selectionbox(dropdown_id, label, **dropdown_kwargs):
@@ -75,9 +86,9 @@ def get_modeling_pane(defaults):
             options=["regression", "classification", "survival analysis"], 
             value=defaults["task"]),
         html.Div(className="centered-content", style={"padding": "5px"}, children=[
-            # dcc.Loading(delay_show=500, children=
+            dcc.Loading(delay_show=500, children=
                 html.Button('Fit forest', className="button", id='train-button')
-            # ),
+            ),
         ]),
         html.Span(id="user-feedback", children="✅ Forest trained successfully!"),
     ]
