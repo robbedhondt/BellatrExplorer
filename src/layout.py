@@ -31,7 +31,7 @@ def make_app_layout(defaults):
         # dcc.Store(id='model', storage_type='memory', data=model2hex(defaults["hex-model"])),
         # dcc.Store(id='btrex', storage_type='memory', data=model2hex(defaults["btrex"]    )),
         # dcc.Store(id='expl' , storage_type='memory', data=model2hex(defaults["expl"]     )),
-        dcc.Store(id='rules'    , storage_type='memory', data=defaults["rules"]    ),
+        dcc.Store(id='rules'    , storage_type='memory', data=defaults["rules"]    ), # NOTE only used for currently inactive hover callback
         # dcc.Store(id='svg-btrex', storage_type='memory', data=defaults["fig-svg"]),
         dcc.Store(id="pred-train", storage_type="memory", data=defaults["y_pred_train"]),
 

@@ -171,6 +171,7 @@ def generate_rules(rf, sample):
         leaf_id = tree.apply(sample)[0]
         node_index = path_tree.indices[path_tree.indptr[0] : path_tree.indptr[1]]
         for node_id in node_index: # TODO: can probably be vectorized...
+            # TODO this code is horrible, can be done on the RF level... 
             if node_id == leaf_id:
                 continue
             if sample[0, tree.tree_.feature[node_id]] <= tree.tree_.threshold[node_id]:
@@ -312,6 +313,12 @@ def hex2model(serialized_model):
     # Unload model with pickle
     return pickle.loads(bytes.fromhex(serialized_model))
 
+def json2pandas(json_data):
+    return pd.read_json(io.StringIO(json_data), orient='split')
+
+def pandas2json(df):
+    return df.to_json(date_format='iso', orient='split')
+
 def get_slider_gradient(vmin, vmax, values=None):
     import matplotlib
     import matplotlib.colors as mcolors
@@ -403,10 +410,10 @@ def load_defaults(scenario=0):
         "fig-svg": svg,
         "df": df,
         # For the dcc.Store
-        "json-df": df.to_json(date_format='iso', orient='split'),
+        "json-df": pandas2json(df),
         "hex-model": rf,
         "btrex": btrex,
-        "rules": rules.to_json(date_format='iso', orient='split'),
+        "rules": pandas2json(rules),
         "expl": expl,
         # Trying out global state
         "model": rf,
@@ -449,7 +456,7 @@ def parse_uploaded_data(contents, filename):
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
         df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-        df = df.to_json(date_format='iso', orient='split')
+        df = pandas2json(df)
         return df, "✅ File uploaded successfully!", None
     except Exception as e:
         print(f"[ERR]: {e}")
@@ -465,7 +472,7 @@ def load_default_dataset(fname):
     if fname is None:
         return dash.no_update, dash.no_update
     df = pd.read_csv(os.path.join("assets", "data", fname))
-    df = df.to_json(date_format='iso', orient='split')
+    df = pandas2json(df)
     return df, "✅ File loaded successfully!"
 
 @callback(
@@ -477,7 +484,7 @@ def update_target_selector(json_data):
     # Parse json data
     if json_data is None:
         return dash.no_update
-    df = pd.read_json(io.StringIO(json_data), orient='split')
+    df = json2pandas(json_data)
     # Update target selector (default = last column)
     return df.columns, df.columns[-1]
 
@@ -491,7 +498,7 @@ def infer_learning_task(target, json_data):
     # Parse json data
     if json_data is None:
         return dash.no_update
-    df = pd.read_json(io.StringIO(json_data), orient='split')
+    df = json2pandas(json_data)
     y = df[target] # NOTE: what about multi-target?
     # Auto-infer the learning task
     y = y.convert_dtypes()
@@ -542,7 +549,7 @@ def train_random_forest(is_disabled, json_data, target, task): # , config):
     # Parse json data
     if json_data is None:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
-    df = pd.read_json(io.StringIO(json_data), orient='split')
+    df = json2pandas(json_data)
     # Train the random forest
     try:
         X, y = split_input_output(df, target)
@@ -581,7 +588,7 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     # Generate data table
     if json_data is None:
         return dash.no_update, dash.no_update, dash.no_update
-    df = pd.read_json(io.StringIO(json_data), orient='split')
+    df = json2pandas(json_data)
     data_table = df.to_dict('records')
     # Generate sliders and sample
     sliders = generate_sliders(df, target)
@@ -611,7 +618,7 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     State('target-selector', 'value'),
 )
 def update_neighbor_plot(slider_values, slider_ids, json_data, target):
-    df = pd.read_json(io.StringIO(json_data), orient='split')
+    df = json2pandas(json_data)
     X, y = split_input_output(df, target)
     rf = cache.get("model")
     features = [slider['index'] for slider in slider_ids]
@@ -678,7 +685,6 @@ def update_btrex_graph(_, slider_values, slider_ids, max_depth, y_pred_train):
     # Load data from inputs
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
-    # df = pd.read_json(io.StringIO(json_data), orient="split")
     btrex = cache.get("btrex")
     rf = cache.get("model")
 
@@ -717,7 +723,7 @@ def update_btrex_depth(max_depth, y_pred_train):
 #     features = [slider['index'] for slider in slider_ids]
 #     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
 #     btrex = hex2model(hex_btrex)
-#     df = pd.read_json(io.StringIO(json_data), orient="split")
+#     df = json2pandas(json_data)
 
 #     # Generate bellatrex figure
 #     X, y = split_input_output(df, target)
@@ -739,7 +745,7 @@ def update_btrex_depth(max_depth, y_pred_train):
 # def update_btrex_depth(max_depth, hex_expl, json_data, target):
 #     # Load data from inputs
 #     expl = hex2model(hex_expl)
-#     df = pd.read_json(io.StringIO(json_data), orient="split")
+#     df = json2pandas(json_data)
 
 #     # Generate bellatrex figure
 #     X, y = split_input_output(df, target)
@@ -763,7 +769,7 @@ def update_btrex_depth(max_depth, y_pred_train):
 #         return dash.no_update
 
 #     # Read rule data of rule that was hovered
-#     rules = pd.read_json(io.StringIO(json_data), orient='split')
+#     rules = json2pandas(json_data)
 #     rule_idx = hoverData["points"][0]["curveNumber"]
 #     rule = rules.loc[rule_idx]
 
