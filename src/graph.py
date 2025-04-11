@@ -39,15 +39,22 @@ class RandomForest:
     
     def fit(self, X, y):
         y = y.squeeze()
-        # TODO input checking? if classification only binary for now; if regression only single-target
+        # TODO input checking? 
+        # > assert single-target
+        # > if classification: assert binary
         if self.task == "survival analysis":
             y = Surv().from_arrays(y >= 0, np.abs(y)) # convert pos-neg to surv
         self.rf.fit(X, y)
+        self.decision_path     = self.rf.decision_path
+        self.estimators_       = self.rf.estimators_
+        self.feature_names_in_ = self.rf.feature_names_in_
+        self.n_estimators      = self.rf.n_estimators
+        return self
     
     def predict(self, X):
         if self.task == "classification":
-            return rf.predict_proba(X)[:,1] # NOTE: you can use rf.classes_ 
-        return rf.predict(X)
+            return self.rf.predict_proba(X)[:,1] # NOTE: you can use rf.classes_ 
+        return self.rf.predict(X)
 
 def split_input_output(df, target):
     if isinstance(target, str):
@@ -58,7 +65,7 @@ def split_input_output(df, target):
 
 def init_btrex(rf, X, y):
     """CALLBACK: on each random forest fit"""
-    rf_packed = pack_trained_ensemble(rf)
+    rf_packed = pack_trained_ensemble(rf.rf)
     btrex = BellatrexExplain(
         rf_packed, set_up='auto', p_grid={"n_clusters": [1, 2, 3]}, verbose=-1)
     btrex.fit(X, y)
