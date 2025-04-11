@@ -355,17 +355,23 @@ app = Dash(__name__) #, prevent_initial_callbacks="initial_duplicate")
 app.title = "BellatrExplorer"
 
 # Initialize defaults for dataframe and figures
-def load_defaults():
+def load_defaults(scenario=0):
+    # Parameters
+    if scenario == 0:
+        fname = "regress_tutorial.csv"
+        target = "norm-sound"
+        task = "regression"
+    else:
+        raise Exception(f"Invalid scenario '{scenario}'.")
+
     # Load data and fit forest
-    fname = "regress_tutorial.csv"
     df = pd.read_csv(os.path.join(path_assets, "data", fname))
-    target = "norm-sound"
     X, y = split_input_output(df, target)
-    rf = RandomForest(task="regression", random_state=42)
+    rf = RandomForest(task=task, random_state=42)
     rf.fit(X, y)
 
     # Generate sliders and sample to explain
-    sliders = generate_sliders(df, target="norm-sound")
+    sliders = generate_sliders(df, target=target)
     sample = {slider.children[1].children[0].id["index"]: slider.children[1].children[0].value
               for slider in sliders}
     sample = pd.DataFrame(sample, index=[0])
@@ -388,7 +394,7 @@ def load_defaults():
     defaults = {
         "target": target,
         "target-options": df.columns,
-        "task": "regression",
+        "task": task,
         "sliders": sliders,
         "fig-slider": fig_slider_impact,
         "graph-rules": fig_rules,
