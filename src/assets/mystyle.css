@@ -1,36 +1,58 @@
+/* ========================================
+  ____                 
+ | __ )  __ _ ___  ___ 
+ |  _ \ / _` / __|/ _ \
+ | |_) | (_| \__ \  __/
+ |____/ \__,_|___/\___|
+                       
+========================================*/
+
 body, html {
     margin: 0;
     padding: 0;
 }
 
-h1 {
-    /* border: 10px ridge #f00; */
-    background-color: black;
-    color: white; 
-    text-align: center; 
-    font-size: 30; 
-    /* padding: 25px 0px; */
-    padding-left: 0px;
-    padding-top: 25px;
-    padding-bottom: 25px;
-    font-family: sans-serif;
-    margin: 0;
-    font-variant: small-caps;
-    /* padding: 0.5rem; */
-    /* display: flex;
-    flex-direction: column; */
+/* ========================================
+  _                            _   
+ | |    __ _ _   _  ___  _   _| |_ 
+ | |   / _` | | | |/ _ \| | | | __|
+ | |__| (_| | |_| | (_) | |_| | |_ 
+ |_____\__,_|\__, |\___/ \__,_|\__|
+             |___/                 
+(flex, containers, spacing)
+========================================*/
+
+.container {
+    display: flex;
 }
 
-h2 {
-    font-size: 16pt;
-    /* font-variant: small-caps; */
-    text-align: center;
-    /* padding-top: -10px; */
+.centered-content {
+    justify-content: center;
+    display: flex;
+    align-items: center;
+}
+
+.header-content {
+    flex-grow: 1; /* take up all remaining space */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* top-align */
+}
+
+.logos {
+    display: flex;
+    align-items: flex-start; /* top-align */
+}
+
+.container-selectionbox-with-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .infobox {
     border: 1px solid black;
-    padding: 0px 6px 6px 6px;
+    padding: 6px 6px 6px 6px;
     font-size: 12;
     /* outline-offset: -10px; */
     margin: 6px 6px;
@@ -63,11 +85,61 @@ h2 {
     overflow: visible
 }
 
-.centered-content {
-    justify-content: center;
-    display: flex;
-    align-items: center;
+.uploadzone {
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    border-width: 1px;
+    border-style: dashed;
+    border-radius: 5px;
+    text-align: center;
+    margin: 10px;
 }
+
+/* ========================================
+  _____                                        _           
+ |_   _|   _ _ __   ___   __ _ _ __ __ _ _ __ | |__  _   _ 
+   | || | | | '_ \ / _ \ / _` | '__/ _` | '_ \| '_ \| | | |
+   | || |_| | |_) | (_) | (_| | | | (_| | |_) | | | | |_| |
+   |_| \__, | .__/ \___/ \__, |_|  \__,_| .__/|_| |_|\__, |
+       |___/|_|          |___/          |_|          |___/ 
+======================================== */
+
+h1 {
+    /* border: 10px ridge #f00; */
+    background-color: black;
+    color: white; 
+    text-align: center; 
+    font-size: 30; 
+    /* padding: 25px 0px; */
+    padding-left: 0px;
+    padding-top: 25px;
+    padding-bottom: 25px;
+    font-family: sans-serif;
+    margin: 0;
+    font-variant: small-caps;
+    /* padding: 0.5rem; */
+    /* display: flex;
+    flex-direction: column; */
+}
+
+h2 {
+    font-size: 16pt;
+    /* font-variant: small-caps; */
+    text-align: center;
+    /* padding-top: -10px; */
+}
+
+
+/* ========================================
+   ____                                             _       
+  / ___|___  _ __ ___  _ __   ___  _ __   ___ _ __ | |_ ___ 
+ | |   / _ \| '_ ` _ \| '_ \ / _ \| '_ \ / _ \ '_ \| __/ __|
+ | |__| (_) | | | | | | |_) | (_) | | | |  __/ | | | |_\__ \
+  \____\___/|_| |_| |_| .__/ \___/|_| |_|\___|_| |_|\__|___/
+                      |_|                                   
+(buttons, dropdowns, sliders, etc.)
+======================================== */
 
 .button {
     /* border: none; */
@@ -89,39 +161,6 @@ h2 {
     cursor: not-allowed;
     opacity: 0.6;
     pointer-events: none; /* Prevents hover effects */
-}
-
-.uploadzone {
-    width: 100%;
-    height: 60px;
-    line-height: 60px;
-    border-width: 1px;
-    border-style: dashed;
-    border-radius: 5px;
-    text-align: center;
-    margin: 10px;
-}
-
-.container {
-    display: flex;
-}
-
-.header-content {
-    flex-grow: 1; /* Allow the header and any additional content to take up remaining space */
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start; /* Optional: makes sure header and other content are top-aligned */
-}
-
-.logos {
-    display: flex;
-    align-items: flex-start; /* Optional: top-align logos */
-}
-
-.container-selectionbox-with-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
 }
 
 /* Customizing slider appearance */
@@ -167,9 +206,9 @@ h2 {
     border-color: black;
 }
 
-.rc-slider-mark-text {
-    /* font-size: 10px !important; */
-}
+/* .rc-slider-mark-text {
+    font-size: 10px !important;
+} */
 
 /* For the custom div behind each slider */
 .slider-gradient {
