@@ -121,64 +121,55 @@ def sort_sliders(sliders, rf):
     importances = rf.feature_importances_
     return sliders[np.argsort(importances)]
 
-def generate_rules(rf, sample):
+def generate_rules_v2(rf, sample):
     """Generate the interactive rules graph.
     
     CALLBACK: upon any slider change (only updating the lines, not creating them tho!)
     """
     path_forest, start_tree_ind = rf.decision_path(sample)
 
-    sample = np.array(sample, dtype=np.float32) # necessary for survanal...
-    sample = np.atleast_2d(sample)
-    # sample = pd.DataFrame(sample)
-    # assert len(sample.shape) > 1
+    # sample = np.atleast_2d(sample)
+    # sample = np.array(sample, dtype=np.float32) # necessary for SurvivalTree...
+    sample = np.array(sample).squeeze()
     n_trees = len(rf.estimators_)
     rule_txt = [[] for _ in range(n_trees)] # TODO better prealloc behavior?
     rule_val = [[] for _ in range(n_trees)] # TODO better prealloc behavior?
     for t in range(n_trees):
-        path_tree = path_forest[start_tree_ind[t]:start_tree_ind[t+1]]
-        tree = rf.estimators_[t]
-        # https://scikit-learn.org/stable/auto_examples/tree/plot_unveil_tree_structure.html#decision-path
-        path_tree = tree.decision_path(sample) # TODO: why not from path_forest?
-        leaf_id = tree.apply(sample)[0]
+        tree = rf.estimators_[t].tree_
+        path_tree = path_forest[:,start_tree_ind[t]:start_tree_ind[t+1]]
         node_index = path_tree.indices[path_tree.indptr[0] : path_tree.indptr[1]]
-        for node_id in node_index: # TODO: can probably be vectorized...
-            # TODO this code is horrible, can be done on the RF level... 
-            if node_id == leaf_id:
-                rule_txt[t].append("Leaf node")
-            else:
-                if sample[0, tree.tree_.feature[node_id]] <= tree.tree_.threshold[node_id]:
-                    sign = "<="
-                else:
-                    sign = ">"
-                feature_index = tree.tree_.feature[node_id]
-                feature_name = rf.feature_names_in_[feature_index]
-                rule_txt[t].append(
-                    f"{feature_name} {sign} {tree.tree_.threshold[node_id]:.4g}")
-            # n_nodes x n_outputs x n_classes
-            # for regression n_classes is always 1
-            # for survanal n_outputs is unique_times_
-            # --> average over all unique times to get global risk score?
-            # value = tree.tree_.value[node_id,:,:]
-            value = tree.tree_.value[node_id,:,-1]
-            # value = np.mean(tree.tree_.value[node_id,:,-1]) # for survival, this gives the mean probability over all the unique_times, so it's a crude integral of the survival function. for classification/regression, the mean does nothing.
-            def median_survival_time(surv_times, surv_probs):
-                idx = np.where(surv_probs <= 0.5)[0]
-                return surv_times[idx[0]] if len(idx) > 0 else surv_times[-1]
-            def mean_survival_time(surv_times, surv_probs):
-                # This method is more sensitive to censoring and requires the tail of the survival curve to be well-behaved or truncated appropriately.
-                return np.trapezoid(surv_probs, surv_times)
-            if rf.task == "survival analysis":
-                # value = median_survival_time(
-                value = mean_survival_time(
-                    surv_times=tree.unique_times_, # == rf.unique_times
-                    surv_probs=tree.tree_.value[node_id,:,-1],
-                ) 
-            rule_val[t].append(value)
+        # RULE IN TEXTUAL FORMAT
+        feature_index = tree.feature[node_index]
+        feature_name = rf.feature_names_in_[feature_index]
+        sign = sample[feature_index] <= tree.threshold[node_index]
+        sign = np.where(sign, "<=", ">")
+        threshold = tree.threshold[node_index]
+        threshold = np.char.mod("%.4g", threshold)
+        rule_txt[t] = feature_name + " " + sign + " " + threshold
+        rule_txt[t][-1] = "Leaf node" # Fix for leaf node (node_index = -2)
         if config.TOOLTIP_PREVIOUS_SPLIT:
             # shift text descriptors by 1 depth level
             rule_txt[t] = ["Root node", *rule_txt[t][:-1]]
-    n_trees = len(rule_val)
+        # RULE VALUES
+        # > tree.value is of shape n_nodes x n_outputs x n_classes
+        #   > for regression n_classes is always 1
+        #   > for survanal n_outputs is len(unique_times_)
+        values = tree.value[node_index,:,-1]
+        # rule_val[t] = np.mean(values) # mean probability over all the unique_times_ (crude integral of survival function, no effect for classification/regression)
+        if rf.task == "survival analysis":
+            def median_survival_time(surv_probs):
+                surv_times = rf.unique_times_
+                idx = np.where(surv_probs <= 0.5)[0]
+                return surv_times[idx[0]] if len(idx) > 0 else surv_times[-1]
+            def mean_survival_time(surv_probs):
+                # This method is more sensitive to censoring and requires the tail of the survival curve to be well-behaved or truncated appropriately.
+                surv_times = rf.unique_times_
+                return np.trapezoid(surv_probs, surv_times)
+            rule_val[t] = np.apply_along_axis(
+                mean_survival_time, axis=1, arr=values).squeeze()
+        else:
+            rule_val[t] = values
+
     rule_len = [len(rule_val[t]) for t in range(n_trees)]
     rule_indicator = np.repeat(np.arange(n_trees), rule_len)
     rule_depth = np.concatenate([np.arange(rule_len[t]) for t in range(n_trees)])
@@ -186,9 +177,8 @@ def generate_rules(rf, sample):
     rule_txt = np.concatenate(rule_txt)
     rule_val = np.concatenate(rule_val).squeeze() # if single-output...
     rules = np.vstack((rule_indicator, rule_depth, rule_val, rule_txt)).T
-    rules = pd.DataFrame(rules, columns=["tree","Depth","Prediction","rule"]) #, dtype=[int, int, float, str])
-    rules["Prediction"] = rules["Prediction"].astype(float)
-    rules["tree"] = rules["tree"].astype(int)
+    rules = pd.DataFrame(rules, columns=["tree","Depth","Prediction","rule"]
+        ).astype({"tree":int, "Depth":int, "Prediction":float, "tree":int})
     return rules
 
 def init_rules_graph(rules):
