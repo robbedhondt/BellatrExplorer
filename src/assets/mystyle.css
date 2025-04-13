@@ -126,6 +126,7 @@ h1 {
 h2 {
     font-size: 16pt;
     /* font-variant: small-caps; */
+    font-family: sans-serif;
     text-align: center;
     /* padding-top: -10px; */
 }

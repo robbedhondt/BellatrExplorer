@@ -2,7 +2,6 @@ import io
 import os
 import base64
 import time
-import pickle
 import numpy as np
 import scipy
 import pandas as pd
@@ -16,11 +15,15 @@ from flask_caching import Cache
 from bellatrex import BellatrexExplain
 from bellatrex.wrapper_class import pack_trained_ensemble
 from bellatrex.utilities import predict_helper
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sksurv.ensemble import RandomSurvivalForest
-from sksurv.util import Surv
-from constants import path_assets
+import config
 from layout import make_app_layout
+from utils import (
+    surv2single, single2surv,
+    model2hex, hex2model,
+    json2pandas, pandas2json,
+    split_input_output,
+    RandomForest
+)
 
 #   _   _ _   _ _ _ _   _           
 #  | | | | |_(_) (_) |_(_) ___  ___ 
@@ -28,47 +31,6 @@ from layout import make_app_layout
 #  | |_| | |_| | | | |_| |  __/\__ \
 #   \___/ \__|_|_|_|\__|_|\___||___/
                                   
-
-class RandomForest:
-    def __init__(self, task, **kwargs):
-        self.task = task
-        if task == "regression":
-            self.rf = RandomForestRegressor(**kwargs)
-        elif task == "classification":
-            self.rf = RandomForestClassifier(**kwargs)
-        elif task == "survival analysis":
-            # TODO: low_memory would be nice so that the full survival curve
-            # isn't stored at every node anymore, but that doesn't work with
-            # bellatrex unfortunately
-            self.rf = RandomSurvivalForest(**kwargs) #, low_memory=True)
-        else:
-            raise Exception(f"Unknown task {task}")
-    
-    def fit(self, X, y):
-        y = y.squeeze()
-        # TODO input checking? 
-        # > assert single-target
-        # > if classification: assert binary
-        if self.task == "survival analysis":
-            y = Surv().from_arrays(y >= 0, np.abs(y)) # convert pos-neg to surv
-        self.rf.fit(X, y)
-        self.decision_path     = self.rf.decision_path
-        self.estimators_       = self.rf.estimators_
-        self.feature_names_in_ = self.rf.feature_names_in_
-        self.n_estimators      = self.rf.n_estimators
-        return self
-    
-    def predict(self, X):
-        if self.task == "classification":
-            return self.rf.predict_proba(X)[:,1] # NOTE: you can use rf.classes_ 
-        return self.rf.predict(X)
-
-def split_input_output(df, target):
-    if isinstance(target, str):
-        target = [target]
-    X = df.drop(columns=target)
-    y = df[target]
-    return X, y
 
 def init_btrex(rf, X, y):
     """CALLBACK: on each random forest fit"""
@@ -93,7 +55,7 @@ def plot_and_save_btrex(expl, y_pred_train=None, plot_max_depth=5):
         plot_max_depth=plot_max_depth, preds_distr=y_pred_train, 
         conf_level=0.9, tot_digits=4, show=False
     )
-    fig.savefig(os.path.join(path_assets, "tmp_btrex.png"), bbox_inches="tight")
+    fig.savefig(os.path.join(config.PATH_ASSETS, "tmp_btrex.png"), bbox_inches="tight")
     plt.close(fig)
 
 def plot_btrex_svg(expl, y_pred_train=None, plot_max_depth=5):
@@ -123,7 +85,7 @@ def generate_sliders(df, target):
     sliders = []
     for col in X.columns:
         feature = X[col].astype(float)
-        quantiles = np.quantile(feature, np.linspace(0, 1, 100))
+        quantiles = np.quantile(feature, np.linspace(0, 1, 101))
         minval = feature.min()
         maxval = feature.max()
         # selval = feature.mean() # selected value
@@ -186,13 +148,13 @@ def generate_rules(rf, sample):
                 rule_txt[t].append("Leaf node")
             else:
                 if sample[0, tree.tree_.feature[node_id]] <= tree.tree_.threshold[node_id]:
-                    threshold_sign = "<="
+                    sign = "<="
                 else:
-                    threshold_sign = ">"
+                    sign = ">"
                 feature_index = tree.tree_.feature[node_id]
                 feature_name = rf.feature_names_in_[feature_index]
                 rule_txt[t].append(
-                    f"{feature_name} {threshold_sign} {tree.tree_.threshold[node_id]}")
+                    f"{feature_name} {sign} {tree.tree_.threshold[node_id]:.4g}")
             # n_nodes x n_outputs x n_classes
             # for regression n_classes is always 1
             # for survanal n_outputs is unique_times_
@@ -213,8 +175,9 @@ def generate_rules(rf, sample):
                     surv_probs=tree.tree_.value[node_id,:,-1],
                 ) 
             rule_val[t].append(value)
-        # shift text descriptors by 1 depth level
-        rule_txt[t] = ["Root node", *rule_txt[t][:-1]]
+        if config.TOOLTIP_PREVIOUS_SPLIT:
+            # shift text descriptors by 1 depth level
+            rule_txt[t] = ["Root node", *rule_txt[t][:-1]]
     n_trees = len(rule_val)
     rule_len = [len(rule_val[t]) for t in range(n_trees)]
     rule_indicator = np.repeat(np.arange(n_trees), rule_len)
@@ -300,7 +263,6 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     fig = px.line(
         y_pred.reset_index(name="Prediction"), 
         x="Quantile", y="Prediction", color="Feature",
-        labels={"Quantile": "Quantile of 'neighbor' sample", "Prediction": "Prediction"},
     )
 
     # Add horizontal line for current sample
@@ -318,8 +280,8 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
 
     # Change some other plot settings
     fig.update_layout(
-        xaxis_title="Quantile of 'neighbor' sample",
-        yaxis_title="Prediction of 'neighbor' sample",
+        xaxis_title="Quantile of neighboring sample",
+        yaxis_title="Prediction",
         legend_title="Feature",
         title="Univariate Feature Effects on Sample Prediction",
         xaxis=dict(range=[0,1]),
@@ -333,25 +295,6 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
         ),
     )
     return fig
-
-def model2hex(model):
-    """[DEPRECATED] Too slow to serialize & transfer the model as json."""
-    # Serialize model with pickle, append timestamp to ensure model is always
-    # updated (even when exactly the same model is found)
-    return pickle.dumps(model).hex() + f"_{time.time()}"
-
-def hex2model(serialized_model):
-    """[DEPRECATED] Too slow to serialize & transfer the model as json."""
-    # First remove timestamp before deserializing
-    serialized_model, _ = serialized_model.rsplit("_", 1)
-    # Unload model with pickle
-    return pickle.loads(bytes.fromhex(serialized_model))
-
-def json2pandas(json_data):
-    return pd.read_json(io.StringIO(json_data), orient='split')
-
-def pandas2json(df):
-    return df.to_json(date_format='iso', orient='split')
 
 def get_slider_gradient(vmin, vmax, values=None):
     import matplotlib
@@ -387,24 +330,24 @@ def generate_sample_datasets():
     df = pd.concat((df["data"], df["target"]), axis=1)
     df.to_csv(Path("assets/data/california_housing.csv"), index=False)
 
-    # FLCHAIN
-    X, y = load_flchain()
-    X = X.drop(columns=["chapter","creatinine"])
-    X = X.convert_dtypes()
-    # for col in X.columns:
-    #     if X.dtypes[col] == "category":
-    #         X[col] = X[col].cat.codes
-    X.sex = X.sex.cat.rename_categories({"F":"1", "M":"0"}).astype(int).astype(bool)
-    X.mgus = X.mgus.cat.codes
-    X = X.rename(columns={"sex":"sex_is_female"})
-    y = y["futime"] * (y["death"].astype(int) * 2 - 1)
-    y = pd.Series(y, name="time_to_death")
-    df = pd.concat((X,y), axis=1)
-    df.to_csv(Path("assets/data/flchain.csv"), index=False)
+    # # FLCHAIN
+    # X, y = load_flchain()
+    # X = X.drop(columns=["chapter","creatinine"])
+    # X = X.convert_dtypes()
+    # # for col in X.columns:
+    # #     if X.dtypes[col] == "category":
+    # #         X[col] = X[col].cat.codes
+    # X.sex = X.sex.cat.rename_categories({"F":"1", "M":"0"}).astype(int).astype(bool)
+    # X.mgus = X.mgus.cat.codes
+    # X = X.rename(columns={"sex":"sex_is_female"})
+    # y = y["futime"] * (y["death"].astype(int) * 2 - 1)
+    # y = pd.Series(y, name="time_to_death")
+    # df = pd.concat((X,y), axis=1)
+    # df.to_csv(Path("assets/data/flchain.csv"), index=False)
 
     # WHAS500
     X, y = load_whas500()
-    y = y["lenfol"] * (y["fstat"].astype(int) * 2 - 1)
+    y = surv2single(cens=y["fstat"], time=y["lenfol"])
     y = pd.Series(y, name="time_to_death")
     df = pd.concat((X,y), axis=1)
     df.to_csv(Path("assets/data/whas500.csv"), index=False)
@@ -439,7 +382,7 @@ def load_defaults(scenario=0):
         raise Exception(f"Invalid scenario '{scenario}'.")
 
     # Load data and fit forest
-    df = pd.read_csv(os.path.join(path_assets, "data", fname))
+    df = pd.read_csv(os.path.join(config.PATH_ASSETS, "data", fname))
     X, y = split_input_output(df, target)
     rf = RandomForest(task=task, random_state=42)
     rf.fit(X, y)
@@ -767,6 +710,7 @@ def update_btrex_graph(_, slider_values, slider_ids, max_depth, y_pred_train):
     prevent_initial_call=True
 )
 def update_btrex_depth(max_depth, y_pred_train):
+    # TODO: can be integrated into `update_btrex_graph` with callback_context
     expl = cache.get("expl")
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return svg

@@ -1,7 +1,7 @@
 import os
 import time
 from dash import html
-from constants import path_assets
+from config import PATH_ASSETS
 from dash import dcc, dash_table
 
 def make_app_layout(defaults):

@@ -44,7 +44,10 @@
        id="image1"
        x="73.403488"
        y="0"
-       style="stroke-width:7.74788" /><image
+       style="stroke-width:7.74788"
+       inkscape:export-filename="combined.png"
+       inkscape:export-xdpi="293.25455"
+       inkscape:export-ydpi="293.25455" /><image
        width="64.773087"
        height="59.822277"
        preserveAspectRatio="none"

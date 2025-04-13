@@ -38,13 +38,19 @@ The app will now be available on http://127.0.0.1:8050/.
 
 ## Future work
 - General
-    - Write a floating point number formatter: floats between 0.01 and 100.0 get rounded to 2 digits, otherwise scientific notation.
+    - Write a floating point number formatter: 3 significant digits if number is [0.0100, 999], otherwise scientific notation.
+        - Add the usage of this formatter to a config file to allow people to turn it off if they want? It might mess up some usecases...
+        - Scientific notation: 0.0e+00
     - Add an optional UMAP visualisation that computes in the background. For each feature you can draw a line from the sample to where it would move in the visualisation if you change that feature in that way. You could also display the closest training sample somehow and indicate how far that one is from the current sample (to see how "out of distribution" you are).
-    - Better handling of dataset input: autoprocess categorical features (OHE), impute missing values... The datatable at the bottom should contain the "cleaned up" data, so the user can verify and compare to the uploaded data.
+    - Better handling of dataset input: autoprocess categorical features (OHE if not castable to int), impute missing values... The datatable at the bottom should contain the "cleaned up" data, so the user can verify and compare to the uploaded data.
     - Potential bug: user changes "learning task" after training; our program relies on value of "learning task" being associated to the currently trained random forest. Solution: stop using "learning task" beyond train_random_forest callback, just use `rf.task` in other places. Caution: any other variables that need to be double-checked for this problem? Like "target" for example...
     - Use the same numpy linspace of quantiles everywhere. Optimize for categorical variables as well (no need to create so many predictions).
+    - Look into TODOs around the script, e.g. optimize generate_rules
 - Modeling
-    - Show more info: dataset descriptive statistics (n, p, ...), RF train and OOB performance
+    - Show more info: dataset descriptive statistics (n, p, ...), RF train and OOB performance (so user can assess overfitting)...
+    - Exception handling: what if user leaves "target" empty for example?
+    - If custom dataset is uploaded, how do we display to the user that this happened? Tighter integration between dataset selection box and upload dataset maybe? (uploading a dataset automatically selects that value in the dropdown)
+    - Add some dropdowns for RF hyperparameters
 - Instance selection
     - Add a button to sort the features. Could be based on impurity (but doesn't work for survanal) or on permutation feature importances (based on out of bag error if that's possible?)
     - Sliders could each have a checkmark button to make it "exponentially scaled"? See https://dash.plotly.com/dash-core-components/slider "Non-Linear Slider and Updatemode". Alternatively, autodetect skewness? (cfr Jasper SurvivalLVQ)
@@ -52,6 +58,8 @@ The app will now be available on http://127.0.0.1:8050/.
     - Maybe show the delta on the slider tracks instead of absolute value?
     - Is the slider background even accurate? The color of the current sample doesn't seem to correspond across different features (while that should be the case)
     - Check if there are no problems with setting the sliders to the first sample in the dataset, since the sliders are constrained to the quantiles now
+    - Evenly space the dots on the sliders? So the values for the slider are actually the percentiles? And the value that is shown could then be the actual feature value... somehow we need to incorporate categorical variables then though. Also we would lose some interpretability of the feature distributional information and its raw value (compared to the rules that say "age > 72" for example)
+        - Add also this to a config file
 - All rules graph
     - [dcc.Tooltip](https://dash.plotly.com/dash-core-components/slider) is what you need to adapt the px lines tooltip 
     - set max rule depth: through callback with fig.update_yaxes(range=[None, value])
@@ -69,6 +77,7 @@ The app will now be available on http://127.0.0.1:8050/.
 - Data table
     - https://dash.plotly.com/datatable table click callback so if you click one of the rows in the datatable it's highlighted and the slider values are changed to it?
 - Optimize flask-cache or see the most efficient way to deal with a model hanging around
+    - Possible solution: save model to a temporary pickle file as well when fitted. Then, when any interaction is required from the model, wrap the cache.get in a function that loads the temporary pickle file if cache.get returns None
     ```python
         # TODO: write a demo app with 3 buttons to truly test the difference of these
         #       three methods
