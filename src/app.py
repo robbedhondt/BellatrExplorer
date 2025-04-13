@@ -115,7 +115,7 @@ def generate_sliders(df, target):
     sliders = []
     for col in X.columns:
         feature = X[col].astype(float)
-        quantiles = np.quantile(feature, np.linspace(0, 1, 101))
+        quantiles = np.quantile(feature, config.QUANTILES)
         minval = feature.min()
         maxval = feature.max()
         # selval = feature.mean() # selected value
@@ -248,8 +248,9 @@ def init_rules_graph(rules):
 def generate_neighborhood_predictions(rf, X, sample):
     # GENERATE THE PREDICTIONS
     # Preallocate the neighborhood instances
-    step = 0.005
-    quantiles = np.arange(0, 1+step, step)
+    # step = 0.005=
+    # quantiles = np.arange(0, 1+step, step)
+    quantiles = config.QUANTILES
     n_neighbors = len(quantiles)*X.shape[1] 
     neighborhood = np.tile(sample, n_neighbors).reshape(n_neighbors, sample.shape[1])
     neighborhood = pd.DataFrame(neighborhood, dtype=float,
