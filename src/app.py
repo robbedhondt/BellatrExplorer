@@ -199,7 +199,7 @@ def generate_rules(rf, sample):
                 surv_times = rf.unique_times_
                 return np.trapezoid(surv_probs, surv_times)
             rule_val[t] = np.apply_along_axis(
-                mean_survival_time, axis=1, arr=values).squeeze()
+                median_survival_time, axis=1, arr=values).squeeze()
         else:
             rule_val[t] = values
 
@@ -214,25 +214,55 @@ def generate_rules(rf, sample):
         ).astype({"tree":int, "Depth":int, "Prediction":float, "tree":int})
     return rules
 
-def init_rules_graph(rules):
+def init_rules_graph(rules, y_pred_train=None):
     fig = px.line(rules, x="Prediction", y="Depth", line_group="tree", #text="rule",
         # range_x=(), # target min and max over the whole dataset
         markers=True,
         # hover_name="tree",
         # hover_data={"rule": True, "Depth":False},
         custom_data=["tree", "rule"],
-        # color="Prediction"
     )
     # LINE SETTINGS
     fig.update_traces(
         # line=dict(width=1),
-        line=dict(width=1, color="gray"),
-        marker=dict(size=3, symbol="circle", color="gray"),
+        line=dict(width=1), #, color="gray"),
+        marker=dict(size=3, symbol="circle"), #, color="gray"),
         # marker=dict(size=6, symbol="triangle-up", color="black"),
         hovertemplate="<b>Tree %{customdata[0]}</b><br>Split: %{customdata[1]}<extra></extra>"
         # text=rules["rule"], 
         # textposition="top center",
     )
+    # COLOR OF THE LINES
+    if y_pred_train is not None:
+        # Assign color per tree (each line is one trace)
+        for i, trace in enumerate(fig.data):
+            leaf_pred = trace["x"][-1]
+            norm = plt.Normalize(np.min(y_pred_train), np.max(y_pred_train))
+            color = plt.get_cmap(config.COLORMAP)(norm(leaf_pred))
+            color = matplotlib.colors.to_hex(color)
+            fig.data[i].line.color = color
+        # Add colorbar
+        colorbar_trace = go.Scatter(
+            x=[None], y=[None],
+            mode='markers',
+            marker=dict(
+                colorscale=config.COLORMAP,
+                cmin=np.min(y_pred_train),
+                cmax=np.max(y_pred_train),
+                colorbar=dict(
+                    title="Leaf prediction",
+                    thickness=15,
+                    len=0.75,
+                ),
+                showscale=True,
+                color=np.mean(y_pred_train),  # just one dummy value in range
+                size=0.0001,  # invisible marker
+            ),
+            hoverinfo='skip',
+            showlegend=False,
+        )
+        fig.add_trace(colorbar_trace)
+
     # PLOT LAYOUT
     fig.update_layout(plot_bgcolor="white")
     shared_axes_params = dict(
@@ -425,8 +455,9 @@ def load_defaults(scenario=0):
     fig_slider_impact = generate_feature_slider_impacts(rf, X, sample, y_pred_neighborhood)
 
     # Generate rules graph
+    y_pred_train = rf.predict(X)
     rules = generate_rules(rf, X.iloc[[0],:])
-    fig_rules = init_rules_graph(rules)
+    fig_rules = init_rules_graph(rules, y_pred_train)
     fig_rules.update_xaxes(range=[y.min(), y.max()], constrain="domain") # TODO not working
     
     # Generate bellatrex graph
@@ -452,7 +483,7 @@ def load_defaults(scenario=0):
         "expl": expl,
         # Trying out global state
         "model": rf,
-        "y_pred_train": rf.predict(X),
+        "y_pred_train": y_pred_train,
         # ...
         "fname": fname,
     }
@@ -639,7 +670,7 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     # Generate rules
     rf = load_from_cache(cache, "model")
     rules = generate_rules(rf, sample)
-    fig_all_rules = init_rules_graph(rules)
+    fig_all_rules = init_rules_graph(rules, y_pred_train)
     # Generate bellatrex figure
     X, y = split_input_output(df, target)
     btrex = init_btrex(rf, X, y)
@@ -684,9 +715,10 @@ def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_tr
     Input({'type': 'slider', 'index': dash.ALL}, 'value'),
     State({'type': 'slider', 'index': dash.ALL}, 'id'),
     # State('model', 'data'),
+    State("pred-train", "data"),
     prevent_initial_call=True
 )
-def update_rules_graph(slider_values, slider_ids):
+def update_rules_graph(slider_values, slider_ids, y_pred_train):
     """Update the graph with all rules on a slider change."""
     rf = load_from_cache(cache, "model")
 
@@ -698,12 +730,19 @@ def update_rules_graph(slider_values, slider_ids):
     rules = generate_rules(rf, sample)
     rules = rules.set_index("tree", drop=False)
 
+    # Define trace colorizer
+    cmap = plt.get_cmap(config.COLORMAP)
+    norm = matplotlib.colors.Normalize(np.min(y_pred_train), np.max(y_pred_train))
+    color = lambda pred: matplotlib.colors.to_hex(cmap(norm(pred)))
+
     # Update lines on the rules graph
     patched_fig = Patch()
     for j in rules.index.unique():
         patched_fig["data"][j]["x"] = rules.loc[j, 'Prediction']
         patched_fig["data"][j]["y"] = rules.loc[j, 'Depth']
         patched_fig["data"][j]["customdata"] = rules.loc[j, ["tree", "rule"]].values
+        leaf_pred = rules.loc[j, 'Prediction'].iloc[-1]
+        patched_fig["data"][j]["line"]["color"] = color(leaf_pred)
     return patched_fig, rules.to_json(date_format='iso', orient='split')
 
 

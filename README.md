@@ -61,9 +61,8 @@ The app will now be available on http://127.0.0.1:8050/.
     - P3: set max rule depth: through callback with fig.update_yaxes(range=[None, value])
     - P2: Add a legend and selector that would highlight all the rules based on one particular feature (similar to the feature selector in univariate feature effects graph)
     - P2: Add colorbar (as a reference point for instance selection)
-    - P1: Change color of the lines to their final prediction
     - P2: Add previous splits to the tooltip of the hovered node (see documentation [dcc.Tooltip](https://dash.plotly.com/dash-core-components/tooltip)). See if this does not conflict with `config.TOOLTIP_PREVIOUS_SPLIT`.
-    - P1: Force graph xlim to the range of all the predictions made by the RF
+    - P2: Force graph xlim to the range of all the predictions made by the RF? Or not??
     - P2: Somehow indicate the current prediction (vertical dotted line, as in btrex)
     - P3: Implement something for the lasso select? Highlight all rules in the selection?
 - Univariate feature effects graph
