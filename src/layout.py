@@ -1,8 +1,8 @@
 import os
 import time
 from dash import html
-from config import PATH_ASSETS
 from dash import dcc, dash_table
+import config
 
 def make_app_layout(defaults):
     return html.Div(style={"padding": "0px", "margin": "0px"}, children=[
@@ -64,8 +64,8 @@ def get_modeling_pane(defaults):
                 **dropdown_kwargs),
         ])
     datasets = [
-        f for f in os.listdir(os.path.join(PATH_ASSETS, "data")) 
-        if os.path.isfile(os.path.join(PATH_ASSETS, "data", f))
+        f for f in os.listdir(os.path.join(config.PATH_ASSETS, "data")) 
+        if os.path.isfile(os.path.join(config.PATH_ASSETS, "data", f))
     ]
     assert len(datasets) != 0, "Datasets folder not found"
 
@@ -87,6 +87,13 @@ def get_modeling_pane(defaults):
         make_labeled_selectionbox("learning-task", "Task:",
             options=["regression", "classification", "survival analysis"], 
             value=defaults["task"]),
+        make_labeled_selectionbox("n-trees", "Number of trees:",
+            options=[50, 100, 200, 1000], value=config.DEFAULT_N_TREES),
+        make_labeled_selectionbox("max-depth", "Max tree depth:",
+            options=[5, 10, 15, None], value=config.DEFAULT_MAX_DEPTH),
+        make_labeled_selectionbox("max-features", "Max features per split:",
+            options=[0.25, 0.50, 0.75, None, "sqrt", "log2"], 
+            value=config.DEFAULT_MAX_FEATURES),
         html.Div(className="centered-content", style={"padding": "5px"}, children=[
             dcc.Loading(delay_show=500, children=
                 html.Button('Fit forest', className="button", id='train-button')

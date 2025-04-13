@@ -48,7 +48,6 @@ The app will now be available on http://127.0.0.1:8050/.
     - If custom dataset is uploaded, how do we display to the user that this happened? Tighter integration between dataset selection box and upload dataset maybe? (uploading a dataset automatically selects that value in the dropdown)
         - One of the dropdown values could be "upload your own dataset..."\
         - This dropdown value could be set to "enabled": False
-    - Add some dropdowns for RF hyperparameters
 - Instance selection
     - Add a button to sort the features. Could be based on impurity (but doesn't work for survanal) or on permutation feature importances (based on out of bag error if that's possible?)
     - Sliders could each have a checkmark button to make it "exponentially scaled"? See https://dash.plotly.com/dash-core-components/slider "Non-Linear Slider and Updatemode". Alternatively, autodetect skewness? (cfr Jasper SurvivalLVQ)

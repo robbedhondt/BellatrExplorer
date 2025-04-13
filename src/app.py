@@ -407,7 +407,7 @@ def load_defaults(scenario=0):
     # Load data and fit forest
     df = pd.read_csv(os.path.join(config.PATH_ASSETS, "data", fname))
     X, y = split_input_output(df, target)
-    rf = RandomForest(task=task, random_state=42)
+    rf = RandomForest(task=task, random_state=42, n_estimators=config.DEFAULT_N_TREES, max_depth=config.DEFAULT_MAX_DEPTH, max_features=config.DEFAULT_MAX_FEATURES)
     rf.fit(X, y)
 
     # Generate sliders and sample to explain
@@ -572,8 +572,11 @@ def change_train_button_style(is_disabled):
     State('target-selector', 'value'),
     State('learning-task', 'value'),
     # State('training-config', 'value'), # TODO RF hyperparameters
+    State("n-trees", "value"),
+    State('max-depth', "value"),
+    State('max-features', "value"),
     prevent_initial_call=True)
-def train_random_forest(is_disabled, json_data, target, task): # , config):
+def train_random_forest(is_disabled, json_data, target, task, n_trees, max_depth, max_features): # , config):
     """
     Train the random forest.
     """
@@ -587,7 +590,7 @@ def train_random_forest(is_disabled, json_data, target, task): # , config):
     # Train the random forest
     try:
         X, y = split_input_output(df, target)
-        rf = RandomForest(task, random_state=42, max_depth=10)
+        rf = RandomForest(task, random_state=42, n_estimators=n_trees, max_depth=max_depth, max_features=max_features)
         rf.fit(X, y)
         y_pred_train = rf.predict(X)
         dump_to_cache(cache, rf, "model")
