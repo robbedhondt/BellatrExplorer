@@ -41,7 +41,6 @@ The app will now be available on http://127.0.0.1:8050/.
     - Add an optional UMAP visualisation that computes in the background. For each feature you can draw a line from the sample to where it would move in the visualisation if you change that feature in that way. You could also display the closest training sample somehow and indicate how far that one is from the current sample (to see how "out of distribution" you are).
     - Better handling of dataset input: autoprocess categorical features (OHE if not castable to int), impute missing values... The datatable at the bottom should contain the "cleaned up" data, so the user can verify and compare to the uploaded data.
     - Potential bug: user changes "learning task" after training; our program relies on value of "learning task" being associated to the currently trained random forest. Solution: stop using "learning task" beyond train_random_forest callback, just use `rf.task` in other places. Caution: any other variables that need to be double-checked for this problem? Like "target" for example...
-    - Use the same numpy linspace of quantiles everywhere. Optimize for categorical variables as well (no need to create so many predictions).
     - Look into TODOs around the script, e.g. optimize generate_rules
 - Modeling
     - Show more info: dataset descriptive statistics (n, p, ...), RF train and OOB performance (so user can assess overfitting)...

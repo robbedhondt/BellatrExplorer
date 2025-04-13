@@ -626,7 +626,6 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
               for slider in sliders}
     sample = pd.DataFrame(sample, index=[0])
     # Generate rules
-    # rf = hex2model(serialized_model)
     rf = load_from_cache(cache, "model")
     rules = generate_rules(rf, sample)
     fig_all_rules = init_rules_graph(rules)
@@ -676,10 +675,8 @@ def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_tr
     # State('model', 'data'),
     prevent_initial_call=True
 )
-# def update_rules_graph(slider_values, slider_ids, serialized_model):
 def update_rules_graph(slider_values, slider_ids):
     """Update the graph with all rules on a slider change."""
-    # rf = hex2model(serialized_model)
     rf = load_from_cache(cache, "model")
 
     # Generate sample from slider values
@@ -691,9 +688,6 @@ def update_rules_graph(slider_values, slider_ids):
     rules = rules.set_index("tree", drop=False)
 
     # Update lines on the rules graph
-    # for j, trace in enumerate(fig["data"]):
-    #     trace['x'] = rules.loc[j, 'Prediction']
-    #     trace['y'] = rules.loc[j, 'Depth']
     patched_fig = Patch()
     for j in rules.index.unique():
         patched_fig["data"][j]["x"] = rules.loc[j, 'Prediction']
@@ -736,57 +730,6 @@ def update_btrex_depth(max_depth, y_pred_train):
     expl = load_from_cache(cache, "expl")
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return svg
-
-# @callback(
-#     Output('graph-btrex', 'src', allow_duplicate=True),
-#     Output('expl', 'data'),
-#     Input('graph-rules', 'figure'), # only when that one finished
-#     State({'type': 'slider', 'index': dash.ALL}, 'value'),
-#     State({'type': 'slider', 'index': dash.ALL}, 'id'),
-#     State('btrex', 'data'),
-#     State('dataframe', 'data'),
-#     State('target-selector', 'value'),
-#     State('slider-max-depth', 'value'),
-#     prevent_initial_call=True
-# )
-# def update_btrex_graph(_, slider_values, slider_ids, hex_btrex, json_data, target, max_depth):
-#     """Update the bellatrex graph when the rules graph finished updating."""
-#     # Load data from inputs
-#     features = [slider['index'] for slider in slider_ids]
-#     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
-#     btrex = hex2model(hex_btrex)
-#     df = json2pandas(json_data)
-
-#     # Generate bellatrex figure
-#     X, y = split_input_output(df, target)
-#     y_pred_train = rf.predict(X)
-#     expl = fit_btrex(btrex, sample)
-#     plot_btrex(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
-#     # (force image reload by appending timestamp)
-#     fig_url = app.get_asset_url("tmp_btrex.png") + f"?t={time.time()}"
-#     return fig_url, model2hex(expl)
-
-# @callback(
-#     Output('graph-btrex', 'src', allow_duplicate=True),
-#     Input('slider-max-depth', 'value'),
-#     State('expl', 'data'),
-#     State('dataframe', 'data'),
-#     State('target-selector', 'value'),
-#     prevent_initial_call=True
-# )
-# def update_btrex_depth(max_depth, hex_expl, json_data, target):
-#     # Load data from inputs
-#     expl = hex2model(hex_expl)
-#     df = json2pandas(json_data)
-
-#     # Generate bellatrex figure
-#     X, y = split_input_output(df, target)
-#     y_pred_train = rf.predict(X)
-#     plot_btrex(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
-#     # (force image reload by appending timestamp)
-#     fig_url = app.get_asset_url("tmp_btrex.png") + f"?t={time.time()}"
-#     return fig_url
-
 
 
 # # Callback to dynamically update text on hover
