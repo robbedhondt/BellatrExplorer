@@ -2,6 +2,7 @@ import io
 import os
 import base64
 import time
+import pickle
 import numpy as np
 import scipy
 import pandas as pd
@@ -31,6 +32,35 @@ from utils import (
 #  | |_| | |_| | | | |_| |  __/\__ \
 #   \___/ \__|_|_|_|\__|_|\___||___/
                                   
+def cleanup_temp_files():
+    if not os.path.exists(config.PATH_TEMP):
+        os.makedirs(config.PATH_TEMP)
+    # for root, _, files in os.walk(config.PATH_TEMP):
+    #     for f in files:
+    #         os.unlink(os.path.join(root, f))
+    for f in os.listdir(config.PATH_TEMP):
+        fpath = os.path.join(config.PATH_TEMP, f)
+        if os.path.isfile(fpath):
+            os.unlink(fpath)
+
+def dump_to_cache(cache, model, name):
+    fpath = os.path.join(config.PATH_TEMP , f"{name}.pkl")
+    pickle.dump(model, open(fpath, "wb"))
+    cache.set(name, model)
+
+def load_from_cache(cache, name):
+    # NOTE: in a multi-user application, should also incorporate a user ID
+    # NOTE: assumes varname in cache and varname in temp folder are equal
+    #       (varname in temp folder should get a session_id as well)
+    model = cache.get(name)
+    if model is None:
+        try:
+            model = pickle.load(open(f"temp/{name}.pkl", "rb"))
+            cache.set(name, model)
+        except FileNotFoundError:
+            model = None
+    return model
+
 
 def init_btrex(rf, X, y):
     """CALLBACK: on each random forest fit"""
@@ -423,12 +453,11 @@ def load_defaults(scenario=0):
 defaults = load_defaults()
 
 # Set up storage cache (later: to scale up to multi-process: use Redis or memcached)
-# TODO: set timeout=300 to store the model for 5 minutes, but handle this 
-#       accordingly in the code
 cache = Cache(app.server, config={"CACHE_TYPE": "simple"})
-cache.set("model", defaults["model"])
-cache.set("btrex", defaults["btrex"])
-cache.set("expl" , defaults["expl"])
+cleanup_temp_files()
+dump_to_cache(cache, defaults["model"], "model") 
+dump_to_cache(cache, defaults["btrex"], "btrex")
+dump_to_cache(cache, defaults["expl"], "expl")
 
 # App layout
 app.layout = make_app_layout(defaults)
@@ -554,7 +583,7 @@ def train_random_forest(is_disabled, json_data, target, task): # , config):
         rf = RandomForest(task, random_state=42, max_depth=10)
         rf.fit(X, y)
         y_pred_train = rf.predict(X)
-        cache.set("model", rf)
+        dump_to_cache(cache, rf, "model")
         return time.time(), y_pred_train, False, "✅ Forest trained successfully!"
     except Exception as e:
         # Prevent softlock due to model fit failing
@@ -595,15 +624,15 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     sample = pd.DataFrame(sample, index=[0])
     # Generate rules
     # rf = hex2model(serialized_model)
-    rf = cache.get("model")
+    rf = load_from_cache(cache, "model")
     rules = generate_rules(rf, sample)
     fig_all_rules = init_rules_graph(rules)
     # Generate bellatrex figure
     X, y = split_input_output(df, target)
     btrex = init_btrex(rf, X, y)
     expl = fit_btrex(btrex, sample)
-    cache.set("btrex", btrex)
-    cache.set("expl", expl)
+    dump_to_cache(cache, btrex, "btrex")
+    dump_to_cache(cache, expl, "expl")
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=5)
     return sliders, data_table, fig_all_rules, svg
 
@@ -619,7 +648,7 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
 def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_train):
     df = json2pandas(json_data)
     X, y = split_input_output(df, target)
-    rf = cache.get("model")
+    rf = load_from_cache(cache, "model")
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
     y_pred_neighborhood = generate_neighborhood_predictions(rf, X, sample)
@@ -648,7 +677,7 @@ def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_tr
 def update_rules_graph(slider_values, slider_ids):
     """Update the graph with all rules on a slider change."""
     # rf = hex2model(serialized_model)
-    rf = cache.get("model")
+    rf = load_from_cache(cache, "model")
 
     # Generate sample from slider values
     features = [slider['index'] for slider in slider_ids]
@@ -684,12 +713,12 @@ def update_btrex_graph(_, slider_values, slider_ids, max_depth, y_pred_train):
     # Load data from inputs
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
-    btrex = cache.get("btrex")
-    rf = cache.get("model")
+    btrex = load_from_cache(cache, "btrex")
+    rf = load_from_cache(cache, "model")
 
     # Generate bellatrex figure
     expl = fit_btrex(btrex, sample)
-    cache.set("expl", expl)
+    dump_to_cache(cache, expl, "expl")
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return svg
 
@@ -701,7 +730,7 @@ def update_btrex_graph(_, slider_values, slider_ids, max_depth, y_pred_train):
 )
 def update_btrex_depth(max_depth, y_pred_train):
     # TODO: can be integrated into `update_btrex_graph` with callback_context
-    expl = cache.get("expl")
+    expl = load_from_cache(cache, "expl")
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return svg
 
