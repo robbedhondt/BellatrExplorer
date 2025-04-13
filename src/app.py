@@ -183,15 +183,16 @@ def generate_rules(rf, sample):
         for node_id in node_index: # TODO: can probably be vectorized...
             # TODO this code is horrible, can be done on the RF level... 
             if node_id == leaf_id:
-                continue
-            if sample[0, tree.tree_.feature[node_id]] <= tree.tree_.threshold[node_id]:
-                threshold_sign = "<="
+                rule_txt[t].append("Leaf node")
             else:
-                threshold_sign = ">"
-            feature_index = tree.tree_.feature[node_id]
-            feature_name = rf.feature_names_in_[feature_index]
-            rule_txt[t].append(
-                f"{feature_name} {threshold_sign} {tree.tree_.threshold[node_id]}")
+                if sample[0, tree.tree_.feature[node_id]] <= tree.tree_.threshold[node_id]:
+                    threshold_sign = "<="
+                else:
+                    threshold_sign = ">"
+                feature_index = tree.tree_.feature[node_id]
+                feature_name = rf.feature_names_in_[feature_index]
+                rule_txt[t].append(
+                    f"{feature_name} {threshold_sign} {tree.tree_.threshold[node_id]}")
             # n_nodes x n_outputs x n_classes
             # for regression n_classes is always 1
             # for survanal n_outputs is unique_times_
@@ -212,6 +213,8 @@ def generate_rules(rf, sample):
                     surv_probs=tree.tree_.value[node_id,:,-1],
                 ) 
             rule_val[t].append(value)
+        # shift text descriptors by 1 depth level
+        rule_txt[t] = ["Root node", *rule_txt[t][:-1]]
     n_trees = len(rule_val)
     rule_len = [len(rule_val[t]) for t in range(n_trees)]
     rule_indicator = np.repeat(np.arange(n_trees), rule_len)
@@ -231,14 +234,16 @@ def init_rules_graph(rules):
         markers=True,
         # hover_name="tree",
         # hover_data={"rule": True, "Depth":False},
-        custom_data=["tree", "rule"]
+        custom_data=["tree", "rule"],
+        # color="Prediction"
     )
     # LINE SETTINGS
     fig.update_traces(
+        # line=dict(width=1),
         line=dict(width=1, color="gray"),
         marker=dict(size=3, symbol="circle", color="gray"),
         # marker=dict(size=6, symbol="triangle-up", color="black"),
-        hovertemplate="<b>Tree %{customdata[0]}</b><br>Rule: %{customdata[1]}<extra></extra>"
+        hovertemplate="<b>Tree %{customdata[0]}</b><br>Split: %{customdata[1]}<extra></extra>"
         # text=rules["rule"], 
         # textposition="top center",
     )
