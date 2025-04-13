@@ -130,7 +130,9 @@ def generate_sliders(df, target):
             # marks=None,
             marks={v:"" for v in quantiles},
             # Use the tooltip to indicate the current value
-            tooltip={"placement": "bottom", "always_visible": True, 
+            tooltip={
+                "placement": "bottom", "always_visible": True, 
+                "transform": "setSignificance",
                 # "style": {"backgroundColor":"red", "color":"blue", "border": "2px solid blue"}
             },
             updatemode='mouseup',

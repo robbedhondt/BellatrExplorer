@@ -38,9 +38,6 @@ The app will now be available on http://127.0.0.1:8050/.
 
 ## Future work
 - General
-    - Write a floating point number formatter: 3 significant digits if number is [0.0100, 999], otherwise scientific notation.
-        - Add the usage of this formatter to a config file to allow people to turn it off if they want? It might mess up some usecases...
-        - Scientific notation: 0.0e+00
     - Add an optional UMAP visualisation that computes in the background. For each feature you can draw a line from the sample to where it would move in the visualisation if you change that feature in that way. You could also display the closest training sample somehow and indicate how far that one is from the current sample (to see how "out of distribution" you are).
     - Better handling of dataset input: autoprocess categorical features (OHE if not castable to int), impute missing values... The datatable at the bottom should contain the "cleaned up" data, so the user can verify and compare to the uploaded data.
     - Potential bug: user changes "learning task" after training; our program relies on value of "learning task" being associated to the currently trained random forest. Solution: stop using "learning task" beyond train_random_forest callback, just use `rf.task` in other places. Caution: any other variables that need to be double-checked for this problem? Like "target" for example...
