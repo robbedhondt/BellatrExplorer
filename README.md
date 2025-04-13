@@ -37,64 +37,63 @@ python web_visualisation.py
 The app will now be available on http://127.0.0.1:8050/.
 
 ## Future work
+- Legend
+    - P1 = very useful to have
+    - P2 = would be nice
+    - P3 = low priority
 - General
-    - Add an optional UMAP visualisation that computes in the background. For each feature you can draw a line from the sample to where it would move in the visualisation if you change that feature in that way. You could also display the closest training sample somehow and indicate how far that one is from the current sample (to see how "out of distribution" you are).
-    - Better handling of dataset input: autoprocess categorical features (OHE if not castable to int), impute missing values... The datatable at the bottom should contain the "cleaned up" data, so the user can verify and compare to the uploaded data.
-    - Potential bug: user changes "target" after training; our program relies on value of "target" being associated to the currently trained random forest... Solution: save "target" as dcc.Store or as attribute of the `RandomForest` model?
-    - Look into TODOs around the script, e.g. optimize generate_rules
+    - P2: Add an optional UMAP visualisation that computes in the background. For each feature you can draw a line from the sample to where it would move in the visualisation if you change that feature in that way. You could also display the closest training sample somehow and indicate how far that one is from the current sample (to see how "out of distribution" you are).
+    - P2: Better handling of dataset input: autoprocess categorical features (OHE if not castable to int), impute missing values... The datatable at the bottom should contain the "cleaned up" data, so the user can verify and compare to the uploaded data.
+    - P2: Potential bug: user changes "target" after training; our program relies on value of "target" being associated to the currently trained random forest... Solution: save "target" as dcc.Store or as attribute of the `RandomForest` model? (even better: upon pressing the train button, write the full setup as a dictionary to a single dcc.Store)
+    - P3: Look into TODOs around the script, e.g. optimize generate_rules
 - Modeling
-    - Show more info: dataset descriptive statistics (n, p, ...), RF train and OOB performance (so user can assess overfitting)...
-    - Exception handling: what if user leaves "target" empty for example?
-    - If custom dataset is uploaded, how do we display to the user that this happened? Tighter integration between dataset selection box and upload dataset maybe? (uploading a dataset automatically selects that value in the dropdown)
-        - One of the dropdown values could be "upload your own dataset..."\
-        - This dropdown value could be set to "enabled": False
+    - P3: Show more info: dataset descriptive statistics (n, p, ...), RF train and OOB performance (so user can assess overfitting)...
+    - P3: Possibly integrate "dataset-selector" and "upload-dataset" more tightly?
+        - One of the dropdown values could be "upload your own dataset..."
+        - OR a "(custom dataset)" dropdown value could be added and set to "enabled": False so the user cannot select it themselves
 - Instance selection
-    - Add a button to sort the features. Could be based on impurity (but doesn't work for survanal) or on permutation feature importances (based on out of bag error if that's possible?)
-    - Sliders could each have a checkmark button to make it "exponentially scaled"? See https://dash.plotly.com/dash-core-components/slider "Non-Linear Slider and Updatemode". Alternatively, autodetect skewness? (cfr Jasper SurvivalLVQ)
-    - Slider value with number formatter. Check out [docs](https://dash.plotly.com/dash-core-components/slider), can be achieved through `tooltip.transform` (maybe see if they have also the "g" formatting notation as in Python?)
-    - Maybe show the delta on the slider tracks instead of absolute value?
-    - Is the slider background even accurate? The color of the current sample doesn't seem to correspond across different features (while that should be the case)
-    - Check if there are no problems with setting the sliders to the first sample in the dataset, since the sliders are constrained to the quantiles now
-    - Evenly space the dots on the sliders? So the values for the slider are actually the percentiles? And the value that is shown could then be the actual feature value... somehow we need to incorporate categorical variables then though. Also we would lose some interpretability of the feature distributional information and its raw value (compared to the rules that say "age > 72" for example)
+    - P2: Add a button to sort the features. Could be based on impurity (but doesn't work for survanal) or on permutation feature importances (based on out of bag error if that's possible?)
+    - P3: Sliders could each have a checkmark button to make it "exponentially scaled"? See https://dash.plotly.com/dash-core-components/slider "Non-Linear Slider and Updatemode". Alternatively, autodetect skewness? (cfr Jasper SurvivalLVQ)
+    - P2: Maybe show the delta on the slider tracks instead of absolute value?
+    - P1: Is the slider background even accurate? The color of the current sample doesn't seem to correspond across different features (while that should be the case)
+    - P2: Evenly space the dots on the sliders? So the values for the slider are actually the percentiles? And the value that is shown could then be the actual feature value... somehow we need to incorporate categorical variables then though. Also we would lose some interpretability of the feature distributional information and its raw value (compared to the rules that say "age > 72" for example)
         - Add also this to a config file
 - All rules graph
-    - [dcc.Tooltip](https://dash.plotly.com/dash-core-components/slider) is what you need to adapt the px lines tooltip 
-    - set max rule depth: through callback with fig.update_yaxes(range=[None, value])
-    - Add a legend and selector that would highlight all the rules based on one particular feature (similar to the feature selector in univariate feature effects graph)
-    - Add colorbar (as a reference point for instance selection)
-    - Change color of the lines to their final prediction
-    - Use number formatter in the tooltip
-    - Force graph xlim to the range of all the predictions made by the RF
-    - Somehow indicate the current prediction (vertical dotted line, as in btrex)
+    - P3: set max rule depth: through callback with fig.update_yaxes(range=[None, value])
+    - P2: Add a legend and selector that would highlight all the rules based on one particular feature (similar to the feature selector in univariate feature effects graph)
+    - P2: Add colorbar (as a reference point for instance selection)
+    - P1: Change color of the lines to their final prediction
+    - P2: Add previous splits to the tooltip of the hovered node (see documentation [dcc.Tooltip](https://dash.plotly.com/dash-core-components/tooltip)). See if this does not conflict with `config.TOOLTIP_PREVIOUS_SPLIT`.
+    - P1: Force graph xlim to the range of all the predictions made by the RF
+    - P2: Somehow indicate the current prediction (vertical dotted line, as in btrex)
+    - P3: Implement something for the lasso select? Highlight all rules in the selection?
 - Univariate feature effects graph
-    - Tooltip: show feature value along with quantile
+    - P1: Tooltip: show feature value along with quantile
 - Bellatrex graph
-    - Adapt generated figure size
-    - Use older bellatrex graph implementation? That can be packaged along with this repo? (the alignment with the arrow at the bottom is not always perfect...)
+    - P1: Adapt generated figure size
+    - P2: Use older bellatrex graph implementation? That can be packaged along with this repo? (the alignment with the arrow at the bottom is not always perfect...)
 - Data table
-    - https://dash.plotly.com/datatable table click callback so if you click one of the rows in the datatable it's highlighted and the slider values are changed to it?
-- Optimize flask-cache or see the most efficient way to deal with a model hanging around
-    - Possible solution: save model to a temporary pickle file as well when fitted. Then, when any interaction is required from the model, wrap the cache.get in a function that loads the temporary pickle file if cache.get returns None
-    ```python
-        # TODO: write a demo app with 3 buttons to truly test the difference of these
-        #       three methods
-        # MODEL HANGING AROUND (with the line `rf = defaults["model"]`)
-        # - Total 365 ms (compute 196, network 169)
-        # - Data transfer
-        #   download: 2271298
-        #   upload:   1856500
-        # MODEL SERIALIZED
-        # - Total 941 ms (compute 533, network 407)
-        # - Data transfer
-        #   download: 2328515
-        #   upload:  29270904
-        # MODEL FROM STORAGE CACHE
-        # - Total 485 ms (compute 270, network 215)
-        # - Data transfer
-        #   download: 128057
-        #   upload  : 1326
-        # rf = defaults["model"]
-    ```
+    - P3: https://dash.plotly.com/datatable table click callback so if you click one of the rows in the datatable it's highlighted and the slider values are changed to it?
+```python
+    # TODO: write a demo app with 3 buttons to truly test the difference of these
+    #       three methods
+    # MODEL HANGING AROUND (with the line `rf = defaults["model"]`)
+    # - Total 365 ms (compute 196, network 169)
+    # - Data transfer
+    #   download: 2271298
+    #   upload:   1856500
+    # MODEL SERIALIZED
+    # - Total 941 ms (compute 533, network 407)
+    # - Data transfer
+    #   download: 2328515
+    #   upload:  29270904
+    # MODEL FROM STORAGE CACHE
+    # - Total 485 ms (compute 270, network 215)
+    # - Data transfer
+    #   download: 128057
+    #   upload  : 1326
+    # rf = defaults["model"]
+```
 
 References
 - [Folder structure](https://community.plotly.com/t/structuring-a-large-dash-application-best-practices-to-follow/62739)
