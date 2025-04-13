@@ -121,7 +121,7 @@ def sort_sliders(sliders, rf):
     importances = rf.feature_importances_
     return sliders[np.argsort(importances)]
 
-def generate_rules_v2(rf, sample):
+def generate_rules(rf, sample):
     """Generate the interactive rules graph.
     
     CALLBACK: upon any slider change (only updating the lines, not creating them tho!)

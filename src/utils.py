@@ -5,6 +5,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sksurv.ensemble import RandomSurvivalForest
 from sksurv.util import Surv
+import config
 
 def surv2single(cens, time):
     return time * (cens.astype(int) * 2 - 1)

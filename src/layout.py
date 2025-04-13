@@ -63,8 +63,8 @@ def get_modeling_pane(defaults):
             dcc.Dropdown(id=dropdown_id, style={'flex': '1'}, **dropdown_kwargs),
         ])
     datasets = [
-        f for f in os.listdir(os.path.join(path_assets, "data")) 
-        if os.path.isfile(os.path.join(path_assets, "data", f))
+        f for f in os.listdir(os.path.join(PATH_ASSETS, "data")) 
+        if os.path.isfile(os.path.join(PATH_ASSETS, "data", f))
     ]
     assert len(datasets) != 0, "Datasets folder not found"
 
