@@ -326,7 +326,7 @@ def get_slider_gradient(vmin, vmax, values=None):
     if values is None:
         values = np.linspace(vmin, vmax, 100)
 
-    colormap = plt.get_cmap('viridis')  # Choose any Matplotlib colormap
+    colormap = plt.get_cmap(config.COLORMAP)  # Choose any Matplotlib colormap
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)  # Normalize to slider range
     """Generate a CSS linear gradient from the colormap."""
     colors = [mcolors.to_hex(colormap(norm(i))) for i in values]
@@ -475,35 +475,39 @@ app.layout = make_app_layout(defaults)
     Output('dataframe', 'data', allow_duplicate=True), 
     Output('user-feedback', 'children', allow_duplicate=True),
     Output('dataset-selector', 'value'),
+    Output("display-upload-fname", "children"),
     Input('upload-dataset', 'contents'), 
     State('upload-dataset', 'filename'),
     prevent_initial_call=True
 )
 def parse_uploaded_data(contents, filename):
     if contents is None:
-        return dash.no_update, "❌ Please upload a CSV file.", dash.no_update
+        return dash.no_update, "❌ Please upload a CSV file.", dash.no_update, filename
     try:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
         df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
         df = pandas2json(df)
-        return df, "✅ File uploaded successfully!", None
+        return df, "✅ File uploaded successfully!", None, filename
     except Exception as e:
         print(f"[ERR]: {e}")
-        return dash.no_update, f"❌ Error reading file: {str(e)}", dash.no_update
+        return dash.no_update, f"❌ Error reading file: {str(e)}", dash.no_update, dash.no_update
 
 @callback(
     Output('dataframe', 'data', allow_duplicate=True), 
     Output('user-feedback', 'children', allow_duplicate=True),
+    Output("display-upload-fname", "children", allow_duplicate=True),
     Input('dataset-selector', 'value'), 
     prevent_initial_call=True
 )
 def load_default_dataset(fname):
-    if fname is None:
-        return dash.no_update, dash.no_update
+    # if "(custom upload)" in fname:
+    #     return dash.no_update, dash.no_update
+    if fname is None: # > result of "Clear value"
+        return dash.no_update, dash.no_update, dash.no_update
     df = pd.read_csv(os.path.join("assets", "data", fname))
     df = pandas2json(df)
-    return df, "✅ File loaded successfully!"
+    return df, "✅ File loaded successfully!", ""
 
 @callback(
     [Output('target-selector', 'options'), Output('target-selector', 'value')],

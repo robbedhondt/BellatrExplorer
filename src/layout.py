@@ -60,7 +60,8 @@ def get_modeling_pane(defaults):
     def make_labeled_selectionbox(dropdown_id, label, **dropdown_kwargs):
         return html.Div(className="container-selectionbox-with-label", children=[
             html.Label(label, htmlFor=dropdown_id),
-            dcc.Dropdown(id=dropdown_id, style={'flex': '1'}, **dropdown_kwargs),
+            dcc.Dropdown(id=dropdown_id, style={'flex': '1'}, clearable=False,
+                **dropdown_kwargs),
         ])
     datasets = [
         f for f in os.listdir(os.path.join(PATH_ASSETS, "data")) 
@@ -77,6 +78,7 @@ def get_modeling_pane(defaults):
             html.Div("or", style={"padding": "5px"}),
             html.Button(className="button", children=dcc.Upload(
                 id='upload-dataset', multiple=False, children="upload a dataset")),
+            html.Div(className="centered-content", id="display-upload-fname", style={"padding": "5px"}),
         ]),
         make_labeled_selectionbox("target-selector", "Target:",
             options=defaults["target-options"], value=defaults["target"], 
