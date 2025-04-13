@@ -119,7 +119,8 @@ def generate_sliders(df, target):
         minval = feature.min()
         maxval = feature.max()
         # selval = feature.mean() # selected value
-        selval = feature.iloc[0]
+        # selval = feature.iloc[0]
+        selval = feature.median()
         slider_component = dcc.Slider(
             min=minval, max=maxval, value=selval, step=None, #step=(maxval - minval)/100, 
             id={'type': 'slider', 'index': col},
@@ -319,18 +320,21 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     )
     return fig
 
-def get_slider_gradient(vmin, vmax, values=None):
-    import matplotlib
-    import matplotlib.colors as mcolors
-    
-    if values is None:
-        values = np.linspace(vmin, vmax, 100)
+def get_slider_gradient(vmin, vmax, values, feature_values):
+    colormap = plt.get_cmap(config.COLORMAP)
+    norm = plt.Normalize(vmin, vmax)
+    colors = [matplotlib.colors.to_hex(colormap(norm(v))) for v in values]
 
-    colormap = plt.get_cmap(config.COLORMAP)  # Choose any Matplotlib colormap
-    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)  # Normalize to slider range
-    """Generate a CSS linear gradient from the colormap."""
-    colors = [mcolors.to_hex(colormap(norm(i))) for i in values]
-    return f"linear-gradient(to right, {', '.join(colors)})"
+    # Communicate to CSS that the gradient is nonlinear: `values` is given in
+    # terms of equally spaced percentiles, but the color should be changing
+    # nonlinearly
+    percentiles = config.QUANTILES
+    feature_percentiles = np.percentile(feature_values, percentiles * 100)
+    ranks = np.searchsorted(np.sort(feature_values), feature_percentiles)
+    positions = ranks / len(feature_values)
+
+    gradient_stops = [f"{c} {p:%}" for c,p in zip(colors, positions)]
+    return f"linear-gradient(to right, {', '.join(gradient_stops)})"
 
 def generate_sample_datasets():
     import pandas as pd
@@ -671,7 +675,7 @@ def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_tr
         maxval = np.max(y_pred_train)
         values = y_pred_neighborhood.loc[feature]
         slider_gradients.append(
-            {"background": get_slider_gradient(minval, maxval, values)})
+            {"background": get_slider_gradient(minval, maxval, values, X[feature])})
     return fig, slider_gradients
 
 @callback(

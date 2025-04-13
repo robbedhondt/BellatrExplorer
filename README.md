@@ -55,7 +55,6 @@ The app will now be available on http://127.0.0.1:8050/.
     - P2: Add a button to sort the features. Could be based on impurity (but doesn't work for survanal) or on permutation feature importances (based on out of bag error if that's possible?)
     - P3: Sliders could each have a checkmark button to make it "exponentially scaled"? See https://dash.plotly.com/dash-core-components/slider "Non-Linear Slider and Updatemode". Alternatively, autodetect skewness? (cfr Jasper SurvivalLVQ)
     - P2: Maybe show the delta on the slider tracks instead of absolute value?
-    - P1: Is the slider background even accurate? The color of the current sample doesn't seem to correspond across different features (while that should be the case)
     - P2: Evenly space the dots on the sliders? So the values for the slider are actually the percentiles? And the value that is shown could then be the actual feature value... somehow we need to incorporate categorical variables then though. Also we would lose some interpretability of the feature distributional information and its raw value (compared to the rules that say "age > 72" for example)
         - Add also this to a config file
 - All rules graph
