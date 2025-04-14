@@ -67,7 +67,6 @@ The app will now be available on http://127.0.0.1:8050/.
     - P2: Somehow indicate the current prediction (vertical dotted line, as in btrex)
     - P3: Implement something for the lasso select? Highlight all rules in the selection?
 - Univariate feature effects graph
-    - P1: Tooltip: show feature value along with quantile
 - Bellatrex graph
     - P1: Adapt generated figure size
     - P2: Use older bellatrex graph implementation? That can be packaged along with this repo? (the alignment with the arrow at the bottom is not always perfect...)

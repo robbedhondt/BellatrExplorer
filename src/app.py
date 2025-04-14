@@ -290,13 +290,17 @@ def generate_neighborhood_predictions(rf, X, sample):
         index=np.repeat(X.columns, len(quantiles)), columns=X.columns)
 
     # Change feature values to quantiles
+    feature_values = []
     for col in X.columns:
-        neighborhood.loc[col,col] = np.quantile(X[col].astype(float), quantiles)
+        feature_values.append(np.quantile(X[col].astype(float), quantiles))
+        neighborhood.loc[col,col] = feature_values[-1]
+    feature_values = np.concatenate(feature_values)
 
     # Make predictions
-    y_pred = pd.Series(rf.predict(neighborhood), index=pd.MultiIndex.from_product(
-        [neighborhood.columns, quantiles], names=["Feature", "Quantile"])
-    )
+    index = pd.Series(feature_values, index=pd.MultiIndex.from_product(
+        [neighborhood.columns, quantiles], names=["Feature", "Quantile"]
+    )).rename("Value").reset_index()
+    y_pred = pd.Series(rf.predict(neighborhood), index=pd.MultiIndex.from_frame(index))
     return y_pred    
 
 def generate_feature_slider_impacts(rf, X, sample, y_pred):
@@ -318,7 +322,7 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     # Create the figure
     fig = px.line(
         y_pred.reset_index(name="Prediction"), 
-        x="Quantile", y="Prediction", color="Feature",
+        x="Quantile", y="Prediction", color="Feature", hover_data="Value"
     )
 
     # Add horizontal line for current sample
@@ -339,16 +343,16 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
         xaxis_title="Quantile of neighboring sample",
         yaxis_title="Prediction",
         legend_title="Feature",
-        title="Univariate Feature Effects on Sample Prediction",
+        # title="Univariate Feature Effects on Sample Prediction",
         xaxis=dict(range=[0,1]),
         yaxis=dict(range=[np.min(y_pred), np.max(y_pred)]),
         template="plotly_white",
-        legend=dict(
-            orientation="h",
-            # entrywidth=70,
-            y=-0.2, yanchor="top",
-            x=1.00, xanchor="right",
-        ),
+        # legend=dict(
+        #     orientation="h",
+        #     # entrywidth=70,
+        #     y=-0.2, yanchor="top",
+        #     x=1.00, xanchor="right",
+        # ),
     )
     return fig
 
