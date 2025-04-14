@@ -365,6 +365,17 @@ def get_slider_gradient(vmin, vmax, values, feature_values):
     ranks = np.searchsorted(np.sort(feature_values), feature_percentiles)
     positions = ranks / len(feature_values)
 
+    # Explicitly add 0 and 1 to fix distributions with repeated values (or uneven ones)
+    positions = np.concatenate(([0], positions, [1]))
+    colors = [colors[0], *colors, colors[-1]]
+
+    # Add a trim to the positions (since the slider doesn't extend to the div edge)
+    if config.SLIDER_TRIM > 0:
+        trim = config.SLIDER_TRIM # = 5% from both sides
+        positions = trim + (positions * (1 - 2*trim))
+        positions = [0, trim, *positions, 1-trim, 1]
+        colors = ["#FFFFFF", "#FFFFFF", *colors, "#FFFFFF", "#FFFFFF"]
+
     gradient_stops = [f"{c} {p:%}" for c,p in zip(colors, positions)]
     return f"linear-gradient(to right, {', '.join(gradient_stops)})"
 
