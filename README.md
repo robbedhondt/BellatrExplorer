@@ -62,7 +62,6 @@ The app will now be available on http://127.0.0.1:8050/.
 - All rules graph
     - P3: set max rule depth: through callback with fig.update_yaxes(range=[None, value])
     - P2: Add a legend and selector that would highlight all the rules based on one particular feature (similar to the feature selector in univariate feature effects graph)
-    - P2: Add colorbar (as a reference point for instance selection)
     - P2: Add previous splits to the tooltip of the hovered node (see documentation [dcc.Tooltip](https://dash.plotly.com/dash-core-components/tooltip)). See if this does not conflict with `config.TOOLTIP_PREVIOUS_SPLIT`.
     - P2: Force graph xlim to the range of all the predictions made by the RF? Or not??
     - P2: Somehow indicate the current prediction (vertical dotted line, as in btrex)

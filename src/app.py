@@ -230,7 +230,7 @@ def generate_rules(rf, sample):
 
 def init_rules_graph(rules, y_pred_train=None):
     fig = px.line(rules, x="Prediction", y="Depth", line_group="tree", #text="rule",
-        # range_x=(), # target min and max over the whole dataset
+        # range_x=(np.min(y_pred_train), np.max(y_pred_train)), # target min and max over the whole dataset
         markers=True,
         # hover_name="tree",
         # hover_data={"rule": True, "Depth":False},
@@ -288,6 +288,9 @@ def init_rules_graph(rules, y_pred_train=None):
     )
     fig.update_xaxes(**shared_axes_params)
     fig.update_yaxes(**shared_axes_params, showgrid=False, autorange="reversed")
+    # # Doesn't work?
+    # if config.XSCALE_RULES_GLOBAL and y_pred_train is not None:
+    #     fig.update_layout(xaxis_range=[np.min(y_pred_train), np.max(y_pred_train)])
     return fig
 
 def generate_neighborhood_predictions(rf, X, sample):
@@ -585,7 +588,8 @@ def load_default_dataset(fname):
 
 @callback(
     [Output('target-selector', 'options'), Output('target-selector', 'value')],
-    Input('dataframe', 'data')
+    Input('dataframe', 'data'),
+    prevent_initial_call=True
 )
 def update_target_selector(json_data):
     """Updates the target selector fields and the default value."""
@@ -600,6 +604,7 @@ def update_target_selector(json_data):
     Output('learning-task', 'value'),
     Input('target-selector', 'value'),
     State('dataframe', 'data'),
+    prevent_initial_call=True
 )
 def infer_learning_task(target, json_data):
     """Automatically infer the learning task from the selected target."""
@@ -727,6 +732,7 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     State('dataframe', 'data'),
     State('target-selector', 'value'),
     State('pred-train', 'data'),
+    prevent_initial_call=True
 )
 def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_train):
     df = json2pandas(json_data)
