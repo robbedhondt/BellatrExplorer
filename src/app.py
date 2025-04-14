@@ -323,7 +323,7 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     # to pass around the full X dataframe all the time
     # TODO also make it more efficient by initializing the plot only at dataset change
 
-    y_pred_sample = rf.predict(sample)
+    y_pred_sample = rf.predict(sample).squeeze()
     features  = y_pred.index.get_level_values("Feature" ).unique()
     quantiles = y_pred.index.get_level_values("Quantile").unique()
     sample_quantile = {
@@ -334,7 +334,8 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     # Create the figure
     fig = px.line(
         y_pred.reset_index(name="Prediction"), 
-        x="Quantile", y="Prediction", color="Feature", hover_data="Value"
+        x="Quantile", y="Prediction", color="Feature", hover_data="Value",
+        line_shape="hv" # draw step function (horizontal-vertical)
     )
 
     # Add horizontal line for current sample
@@ -344,11 +345,16 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
         name="Current sample"
     ))
 
-    # # Add sample points for each feature
-    # for col in features:
-    #     x_sample = sample_quantile[col]
-    #     y_sample = np.interp(x_sample, quantiles, y_pred[col])
-    #     fig.add_scatter(x=[x_sample], y=[y_sample], mode="markers", marker=dict(size=10), name=col)
+    # Add sample points for each feature
+    for j, col in enumerate(features):
+        x_sample = sample_quantile[col]
+        y_sample = np.interp(x_sample, quantiles, y_pred[col])
+        color = fig.data[j].line.color
+        fig.add_scatter(x=[x_sample], y=[y_sample], mode="markers", 
+            marker=dict(size=10, color=color), 
+            showlegend=False, 
+            name=col
+        )
 
     # Change some other plot settings
     fig.update_layout(
