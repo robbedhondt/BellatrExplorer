@@ -170,24 +170,26 @@ def generate_rules(rf, sample):
     for t in range(n_trees):
         tree = rf.estimators_[t].tree_
         path_tree = path_forest[:,start_tree_ind[t]:start_tree_ind[t+1]]
-        node_index = path_tree.indices[path_tree.indptr[0] : path_tree.indptr[1]]
+        node_indices = path_tree.indices[path_tree.indptr[0] : path_tree.indptr[1]]
+        # ======================
         # RULE IN TEXTUAL FORMAT
-        feature_index = tree.feature[node_index]
+        feature_index = tree.feature[node_indices]
         feature_name = rf.feature_names_in_[feature_index]
-        sign = sample[feature_index] <= tree.threshold[node_index]
+        sign = sample[feature_index] <= tree.threshold[node_indices]
         sign = np.where(sign, "<=", ">")
-        threshold = tree.threshold[node_index]
+        threshold = tree.threshold[node_indices]
         threshold = np.char.mod("%.4g", threshold)
         rule_txt[t] = feature_name + " " + sign + " " + threshold
-        rule_txt[t][-1] = "Leaf node" # Fix for leaf node (node_index = -2)
+        rule_txt[t][-1] = "Leaf node" # Fix for leaf node (node_indices = -2)
         if config.TOOLTIP_PREVIOUS_SPLIT:
             # shift text descriptors by 1 depth level
             rule_txt[t] = ["Root node", *rule_txt[t][:-1]]
+        # ===========
         # RULE VALUES
         # > tree.value is of shape n_nodes x n_outputs x n_classes
         #   > for regression n_classes is always 1
         #   > for survanal n_outputs is len(unique_times_)
-        values = tree.value[node_index,:,-1]
+        values = tree.value[node_indices,:,-1]
         # rule_val[t] = np.mean(values) # mean probability over all the unique_times_ (crude integral of survival function, no effect for classification/regression)
         if rf.task == "survival analysis":
             def median_survival_time(surv_probs):
@@ -247,7 +249,7 @@ def init_rules_graph(rules, y_pred_train=None):
             mode='markers',
             marker=dict(
                 colorscale=config.COLORMAP,
-                cmin=np.min(y_pred_train),
+                cmin=np.min(y_pred_train), # TODO better min([min(tree.tree_.value[:,:,-1]) for tree in rf.estimators_]); aggregated for survival analysis tho
                 cmax=np.max(y_pred_train),
                 colorbar=dict(
                     title="Leaf prediction",

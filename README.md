@@ -43,6 +43,7 @@ The app will now be available on http://127.0.0.1:8050/.
     - P3 = low priority
 - General
     - P2: Add an optional UMAP visualisation that computes in the background. For each feature you can draw a line from the sample to where it would move in the visualisation if you change that feature in that way. You could also display the closest training sample somehow and indicate how far that one is from the current sample (to see how "out of distribution" you are).
+        - Inverse UMAP: click a point on the UMAP and transform it back into a instance
     - P2: Better handling of dataset input: autoprocess categorical features (OHE if not castable to int), impute missing values... The datatable at the bottom should contain the "cleaned up" data, so the user can verify and compare to the uploaded data.
     - P2: Potential bug: user changes "target" after training; our program relies on value of "target" being associated to the currently trained random forest... Solution: save "target" as dcc.Store or as attribute of the `RandomForest` model? (even better: upon pressing the train button, write the full setup as a dictionary to a single dcc.Store)
     - P3: Look into TODOs around the script, e.g. optimize generate_rules

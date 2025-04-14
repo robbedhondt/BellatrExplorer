@@ -64,10 +64,14 @@ def get_modeling_pane(defaults):
                 **dropdown_kwargs),
         ])
     datasets = [
-        f for f in os.listdir(os.path.join(config.PATH_ASSETS, "data")) 
+        f # {"label":f, "value":f, "title":"A tooltip giving information about this dataset."}
+        for f in os.listdir(os.path.join(config.PATH_ASSETS, "data")) 
         if os.path.isfile(os.path.join(config.PATH_ASSETS, "data", f))
     ]
     assert len(datasets) != 0, "Datasets folder not found"
+    # # Nice idea, but this option is still visible in the dropdown list, which
+    # # is not ideal I guess.
+    # datasets = datasets + [{"disabled":True, "label":"(uploaded dataset)", "value":"(uploaded dataset)"}]
 
     return [
         html.H2("Modeling"),
@@ -123,7 +127,12 @@ def get_rules_pane(defaults):
 def get_btrex_pane(defaults):
     return [
         html.H2("Bellatrex"),
-        dcc.Slider(1, 10, 1, value=5, id="slider-max-depth"),
+        html.Div(className="container-selectionbox-with-label", children=[
+            html.Label("Max display depth:", htmlFor="slider-max-depth"),
+            html.Div(style={"flex": "1"}, children=[
+               dcc.Slider(1, 10, 1, value=5, id="slider-max-depth"),
+            ]),
+        ]),
         html.Iframe(id="svg-btrex", srcDoc=defaults["fig-svg"], 
             style={
                 'width':'100%', 'height':'800px', 
