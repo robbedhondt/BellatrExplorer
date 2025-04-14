@@ -362,8 +362,8 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
         yaxis_title="Prediction",
         legend_title="Feature",
         # title="Univariate Feature Effects on Sample Prediction",
-        xaxis=dict(range=[0,1]),
-        yaxis=dict(range=[np.min(y_pred), np.max(y_pred)]),
+        # xaxis_range=[0,1],
+        # yaxis_range=[np.min(y_pred), np.max(y_pred)],
         template="plotly_white",
         # legend=dict(
         #     orientation="h",
@@ -372,6 +372,10 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
         #     x=1.00, xanchor="right",
         # ),
     )
+    if config.YSCALE_NEIGHBORHOOD_GLOBAL:
+        fig.update_layout(
+            yaxis_range=[rf.minpred, rf.maxpred],
+        )
     return fig
 
 def get_slider_gradient(vmin, vmax, values, feature_values):

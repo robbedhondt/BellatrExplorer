@@ -61,13 +61,21 @@ class RandomForest:
         # > if classification: assert binary
         if self.task == "survival analysis":
             y = single2surv(y) # convert pos-neg to surv
+        # Fit the random forest
         self.rf.fit(X, y)
+        # Inherit relevant attributes
         self.decision_path     = self.rf.decision_path
         self.estimators_       = self.rf.estimators_
         self.feature_names_in_ = self.rf.feature_names_in_
         self.n_estimators      = self.rf.n_estimators
         if self.task == "survival analysis":
             self.unique_times_ = self.rf.unique_times_
+        # Add some additional attributes of interest
+        y_pred_train = self.predict(X) # TODO can also be an attribute?
+        self.minpred = min(y_pred_train)
+        self.maxpred = max(y_pred_train)
+        # self.minpred_tree = min(tree.predict(X) for tree in self.rf.estimators_)
+        # ^ needs to use self.predict structure though for the trees...
         return self
     
     def predict(self, X):

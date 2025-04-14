@@ -7,6 +7,7 @@ COLORMAP = "viridis"
 QUANTILES = np.linspace(0, 1, 101)
 SLIDER_TRIM = 0.05 # 5 percent trim from slider background gradient
 # BTREX_SCALE = 0.7 # Downscaler of the generated Bellatrex SVG
+YSCALE_NEIGHBORHOOD_GLOBAL = True
 
 # Constants
 DEFAULT_N_TREES = 100
