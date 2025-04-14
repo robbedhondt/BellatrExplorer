@@ -133,13 +133,15 @@ def get_btrex_pane(defaults):
                dcc.Slider(1, 10, 1, value=5, id="slider-max-depth"),
             ]),
         ]),
-        html.Iframe(id="svg-btrex", srcDoc=defaults["fig-svg"], 
-            style={
-                'width':'100%', 'height':'800px', 
-                'object-fit':'contain',
-                "border": "none",  # Removes iframe border
-                "overflow": "hidden",  # Hides scrollbars
+        html.Div(className="iframe-container", children=[
+            html.Iframe(id="svg-btrex", srcDoc=defaults["fig-svg"], style={
+                # 'width':f'{config.BTREX_SCALE:%}', 'height':f'{config.BTREX_SCALE:%}', 
+                # "width": "100%", "height": "100vh",
+                # 'object-fit':'contain',
+                # "border": "none",  # Removes iframe border
+                # "overflow": "hidden",  # Hides scrollbars
             }),
+        ]),
         # html.Img(id="graph-btrex", src=app.get_asset_url("tmp_btrex.png"), 
         #     style={'width':'100%', 'max-height':'400px', 
         #     'object-fit':'contain'}),

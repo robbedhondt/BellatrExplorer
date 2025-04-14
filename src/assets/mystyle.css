@@ -12,6 +12,10 @@ body, html {
     padding: 0;
 }
 
+:root {
+    --btrex-scale: 0.6;
+}
+
 /* ========================================
   _                            _   
  | |    __ _ _   _  ___  _   _| |_ 
@@ -94,6 +98,25 @@ body, html {
     border-radius: 5px;
     text-align: center;
     margin: 10px;
+}
+
+.iframe-container {
+    width: 100%;
+    /* overflow: visible; */
+    height: calc(var(--btrex-scale) * 100vh);
+}
+
+iframe#svg-btrex {
+    transform: scale(var(--btrex-scale));
+    transform-origin: top left;
+    /* Change frame width: 100 / transform to compensate for scaling */
+    width: calc(100% / var(--btrex-scale));
+    /* Change frame height to compensate for scaling */
+    height: 100vh;
+    pointer-events: auto;
+    /* object-fit: contain; */
+    border: none;
+    overflow: visible;
 }
 
 /* ========================================

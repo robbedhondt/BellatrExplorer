@@ -100,7 +100,19 @@ def plot_btrex_svg(expl, y_pred_train=None, plot_max_depth=5):
     fig.savefig(img_io, format="svg")
     img_io.seek(0)
     plt.close(fig)
-    return img_io.getvalue()
+    svg = img_io.getvalue()
+    # # Transform the SVG by scaling down
+    # svg = svg.replace('<svg', f'<svg style="transform: scale({config.BTREX_SCALE}); transform-origin: top left;"', 1)
+    # # Transform the SVG canvas as well to avoid Iframe overflow
+    # import re
+    # width_match  = re.search( r'width="([\d.]+)pt"', svg)
+    # height_match = re.search(r'height="([\d.]+)pt"', svg)
+    # if width_match and height_match:
+    #     width_pt  = float( width_match.group(1)) * config.BTREX_SCALE
+    #     height_pt = float(height_match.group(1)) * config.BTREX_SCALE
+    #     svg = re.sub( r'width="[\d.]+pt"',  f'width="{width_pt}pt"' , svg)
+    #     svg = re.sub(r'height="[\d.]+pt"', f'height="{height_pt}pt"', svg)
+    return svg
 
 def generate_sliders(df, target):
     """Generate slider components to edit sample data.

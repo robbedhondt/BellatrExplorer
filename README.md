@@ -52,6 +52,7 @@ The app will now be available on http://127.0.0.1:8050/.
     - P3: Possibly integrate "dataset-selector" and "upload-dataset" more tightly?
         - One of the dropdown values could be "upload your own dataset..."
         - OR a "(custom dataset)" dropdown value could be added and set to "enabled": False so the user cannot select it themselves
+    - P3: Add slider options "default" to the RF hyperparameters that use the library default hyperparameter in question? (can be different classification / regression / survival analysis)
 - Instance selection
     - P2: Add a button to sort the features. Could be based on impurity (but doesn't work for survanal) or on permutation feature importances (based on out of bag error if that's possible?)
     - P3: Sliders could each have a checkmark button to make it "exponentially scaled"? See https://dash.plotly.com/dash-core-components/slider "Non-Linear Slider and Updatemode". Alternatively, autodetect skewness? (cfr Jasper SurvivalLVQ)
@@ -68,7 +69,6 @@ The app will now be available on http://127.0.0.1:8050/.
     - P3: Implement something for the lasso select? Highlight all rules in the selection?
 - Univariate feature effects graph
 - Bellatrex graph
-    - P1: Adapt generated figure size
     - P2: Use older bellatrex graph implementation? That can be packaged along with this repo? (the alignment with the arrow at the bottom is not always perfect...)
 - Data table
     - P3: https://dash.plotly.com/datatable table click callback so if you click one of the rows in the datatable it's highlighted and the slider values are changed to it?
