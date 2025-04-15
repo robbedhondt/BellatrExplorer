@@ -337,6 +337,16 @@ def generate_neighborhood_predictions(rf, X, sample):
     y_pred = pd.Series(rf.predict(neighborhood), index=pd.MultiIndex.from_frame(index))
     return y_pred    
 
+def generate_slider_gradients(X, y_pred_neighborhood, y_pred_train):
+    slider_gradients = []
+    minval = np.min(y_pred_train)
+    maxval = np.max(y_pred_train)
+    for feature in X.columns:
+        values = y_pred_neighborhood.loc[feature]
+        slider_gradients.append(
+            {"background": get_slider_gradient(minval, maxval, values, X[feature])})
+    return slider_gradients
+
 def generate_feature_slider_impacts(rf, X, sample, y_pred):
     """
     y_pred = y_pred_neighborhood
@@ -506,6 +516,7 @@ def load_defaults(scenario=0):
     X, y = split_input_output(df, target)
     rf = RandomForest(task=task, random_state=42, n_estimators=config.DEFAULT_N_TREES, max_depth=config.DEFAULT_MAX_DEPTH, max_features=config.DEFAULT_MAX_FEATURES)
     rf.fit(X, y)
+    y_pred_train = rf.predict(X)
 
     # Generate sliders and sample to explain
     sliders = generate_sliders(df, target=target)
@@ -516,9 +527,12 @@ def load_defaults(scenario=0):
     # Generate slider impact graph
     y_pred_neighborhood = generate_neighborhood_predictions(rf, X, sample)
     fig_slider_impact = generate_feature_slider_impacts(rf, X, sample, y_pred_neighborhood)
+    # Initialize the slider gradients
+    slider_gradients = generate_slider_gradients(X, y_pred_neighborhood, y_pred_train)
+    for slider, gradient in zip(sliders, slider_gradients):
+        slider.children[1].style = gradient
 
     # Generate rules graph
-    y_pred_train = rf.predict(X)
     rules = generate_rules(rf, X.iloc[[0],:])
     fig_rules = init_rules_graph(rules, y_pred_train)
     fig_rules.update_xaxes(range=[y.min(), y.max()], constrain="domain") # TODO not working
@@ -534,6 +548,7 @@ def load_defaults(scenario=0):
         "target-options": df.columns,
         "task": task,
         "sliders": sliders,
+        "slider-gradients": slider_gradients,
         "fig-slider": fig_slider_impact,
         "graph-rules": fig_rules,
         "fig-svg": svg,
@@ -765,14 +780,7 @@ def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_tr
     # Generate figure with impacts
     fig = generate_feature_slider_impacts(rf, X, sample, y_pred_neighborhood)
     # Generate slider gradients
-    slider_gradients = []
-    for slider in slider_ids:
-        feature = slider['index']
-        minval = np.min(y_pred_train)
-        maxval = np.max(y_pred_train)
-        values = y_pred_neighborhood.loc[feature]
-        slider_gradients.append(
-            {"background": get_slider_gradient(minval, maxval, values, X[feature])})
+    slider_gradients = generate_slider_gradients(X, y_pred_neighborhood, y_pred_train)
     return fig, slider_gradients
 
 @callback(
