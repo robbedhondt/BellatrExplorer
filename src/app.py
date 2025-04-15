@@ -430,6 +430,7 @@ def generate_sample_datasets():
     # Some postprocessing
     y = y.replace({2:"benign", 4:"malignant"})
     df = pd.concat((X,y), axis=1)
+    df = df.dropna()
     df.to_csv(Path("assets/data/breast_cancer_wisconsin.csv"), index=False)
 
     # CALIFORNIA HOUSING
