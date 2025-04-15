@@ -96,8 +96,12 @@ def plot_btrex_svg(expl, y_pred_train=None, plot_max_depth=5):
         plot_max_depth=plot_max_depth, preds_distr=y_pred_train, 
         conf_level=0.9, tot_digits=4, show=False
     )
+    # # This is not a clean transform, the text objects are not properly scaling
+    # # (boxes are oversized when downsizing)
+    # size = fig.get_size_inches()
+    # fig.set_size_inches(size[0] * 0.75, size[1] * 0.75)
     img_io = io.StringIO()
-    fig.savefig(img_io, format="svg")
+    fig.savefig(img_io, format="svg", bbox_inches="tight")
     img_io.seek(0)
     plt.close(fig)
     svg = img_io.getvalue()
@@ -235,6 +239,9 @@ def init_rules_graph(rules, y_pred_train=None):
         # hover_name="tree",
         # hover_data={"rule": True, "Depth":False},
         custom_data=["tree", "rule"],
+    )
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=15, b=0),
     )
     # LINE SETTINGS
     fig.update_traces(
@@ -374,6 +381,7 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
         #     y=-0.2, yanchor="top",
         #     x=1.00, xanchor="right",
         # ),
+        margin=dict(l=0, r=0, t=15, b=0),
     )
     if config.YSCALE_NEIGHBORHOOD_GLOBAL:
         fig.update_layout(

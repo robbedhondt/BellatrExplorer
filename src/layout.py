@@ -10,17 +10,34 @@ def make_app_layout(defaults):
         get_header(),
         # MAIN CONTENT
         html.Div(className="container", children=[
+            # # LEFT: modeling and instance selection
+            # html.Div(style={"width": "20%", "display": "flex", "flexDirection": "column"}, children=[
+            #     html.Div(className="infobox", children=get_modeling_pane(defaults)),
+            #     html.Div(className="infobox", children=get_instance_pane(defaults)),
+            # ]),
+            # # RIGHT: two rows
+            # html.Div(style={"width": "80%", "display": "flex", "flexDirection": "column"}, children=[
+            #     # First row: neighborhood + rules side by side
+            #     html.Div(style={"display": "flex", "justifyContent": "space-between"}, children=[
+            #         html.Div(style={"width": "50%"}, className="infobox", children=get_neighborhood_pane(defaults)),
+            #         html.Div(style={"width": "50%"}, className="infobox", children=get_rules_pane(defaults)),
+            #     ]),
+            #     # Second row: full width btrex
+            #     html.Div(style={"width": "100%"}, className="infobox", children=get_btrex_pane(defaults)),
+            # ]),
             # SETUP: modeling and instance selection
             html.Div(style={"width":"20%"}, children=[
                 html.Div(className="infobox", children=get_modeling_pane(defaults)),
                 html.Div(className="infobox", children=get_instance_pane(defaults)),
             ]),
-            # EXPLANATION: Bellatrex and rule paths
-            html.Div(style={"width":"40%"}, children=[
-                html.Div(className="infobox", children=get_rules_pane(defaults)),
+            # EXPLANATION
+            # First column: neighborhood, rules
+            html.Div(style={"width": "35%"}, children=[
                 html.Div(className="infobox", children=get_neighborhood_pane(defaults)),
+                html.Div(className="infobox", children=get_rules_pane(defaults)),
             ]),
-            html.Div(style={"width":"40%"}, children=[
+            # Second column: bellatrex
+            html.Div(style={"width": "45%"}, children=[
                 html.Div(className="infobox", children=get_btrex_pane(defaults)),
             ]),
         ]),
@@ -94,10 +111,18 @@ def get_modeling_pane(defaults):
         make_labeled_selectionbox("n-trees", "Number of trees:",
             options=[50, 100, 200, 1000], value=config.DEFAULT_N_TREES),
         make_labeled_selectionbox("max-depth", "Max tree depth:",
-            options=[5, 10, 15, None], value=config.DEFAULT_MAX_DEPTH),
+            # options={"5":5, "10":10, "15":15, "Unrestricted":None}, 
+            options=[5, 10, 15, None],
+            value=config.DEFAULT_MAX_DEPTH),
         make_labeled_selectionbox("max-features", "Max features per split:",
-            options=[0.25, 0.50, 0.75, None, "sqrt", "log2"], 
-            value=config.DEFAULT_MAX_FEATURES),
+            options=[
+                {"label": "25%", "value": 0.25},
+                {"label": "50%", "value": 0.50},
+                {"label": "75%", "value": 0.75},
+                {"label":"100%", "value": 1.00},
+                {"label":"sqrt", "value": "sqrt"},
+                {"label":"log2", "value": "log2"},
+            ], value=config.DEFAULT_MAX_FEATURES),
         html.Div(className="centered-content", style={"padding": "5px"}, children=[
             dcc.Loading(delay_show=500, children=
                 html.Button('Fit forest', className="button", id='train-button')

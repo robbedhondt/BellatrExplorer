@@ -13,7 +13,7 @@ body, html {
 }
 
 :root {
-    --btrex-scale: 0.6;
+    --btrex-scale: 0.65;
 }
 
 /* ========================================
@@ -103,7 +103,11 @@ body, html {
 .iframe-container {
     width: 100%;
     /* overflow: visible; */
-    height: calc(var(--btrex-scale) * 100vh);
+    /* height: calc(var(--btrex-scale) * 100vh); */
+    height: 700px;
+    justify-content: center;
+    text-align: center;
+    align-items: center;
 }
 
 iframe#svg-btrex {
@@ -112,7 +116,7 @@ iframe#svg-btrex {
     /* Change frame width: 100 / transform to compensate for scaling */
     width: calc(100% / var(--btrex-scale));
     /* Change frame height to compensate for scaling */
-    height: 100vh;
+    height: calc(100% / var(--btrex-scale));
     pointer-events: auto;
     /* object-fit: contain; */
     border: none;
@@ -151,7 +155,7 @@ h2 {
     /* font-variant: small-caps; */
     font-family: sans-serif;
     text-align: center;
-    /* padding-top: -10px; */
+    margin-top: 0px;
 }
 
 
