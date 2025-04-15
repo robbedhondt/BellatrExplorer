@@ -367,7 +367,8 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     fig = px.line(
         y_pred.reset_index(name="Prediction"), 
         x="Quantile", y="Prediction", color="Feature", hover_data="Value",
-        line_shape="hv" # draw step function (horizontal-vertical)
+        line_shape="hvh", # draw step function (horizontal-vertical)
+        height=300,
     )
 
     # Add horizontal line for current sample
@@ -380,7 +381,11 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     # Add sample points for each feature
     for j, col in enumerate(features):
         x_sample = sample_quantile[col]
-        y_sample = np.interp(x_sample, quantiles, y_pred[col])
+        # # NOTE: this doesn't work with step function (the advantage was that 
+        # # the point was definitely on the plot, but that is lost now).
+        # # Therefore, hardcoding y_sample now.
+        # y_sample = np.interp(x_sample, quantiles, y_pred[col])
+        y_sample = y_pred_sample
         color = fig.data[j].line.color
         fig.add_scatter(x=[x_sample], y=[y_sample], mode="markers", 
             marker=dict(size=10, color=color), 
