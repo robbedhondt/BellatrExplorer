@@ -206,7 +206,6 @@ def generate_rules(rf, sample):
         #   > for regression n_classes is always 1
         #   > for survanal n_outputs is len(unique_times_)
         values = tree.value[node_indices,:,-1]
-        # rule_val[t] = np.mean(values) # mean probability over all the unique_times_ (crude integral of survival function, no effect for classification/regression)
         if rf.task == "survival analysis":
             def median_survival_time(surv_probs):
                 surv_times = rf.unique_times_
@@ -218,6 +217,19 @@ def generate_rules(rf, sample):
                 return np.trapezoid(surv_probs, surv_times)
             rule_val[t] = np.apply_along_axis(
                 median_survival_time, axis=1, arr=values).squeeze()
+            # rule_val[t] = np.mean(values, axis=1) # mean probability over all the unique_times_ (crude integral of survival function, no effect for classification/regression)
+
+            # # Integrated cumulative hazard function
+            # chf = -np.log(values)
+            # chf[chf > np.log(1e-6)] = 0
+            # rule_val[t] = np.trapezoid(chf, rf.unique_times_)
+            # # # Avoiding taking log of (near-)zero
+            # # safe_surv_probs = values[values > 1e-6]
+            # # safe_surv_times = rf.unique_times_[values > 1e-6]
+            # # # compute cumulative hazard function
+            # # chf = -np.log(safe_surv_probs)
+            # # # integrate CHF to get RF prediction
+            # # rule_val[t] = np.trapezoid(chf, safe_surv_times)
         else:
             rule_val[t] = values
 
