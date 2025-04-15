@@ -33,6 +33,11 @@ from utils import (
 #   \___/ \__|_|_|_|\__|_|\___||___/
                                   
 def cleanup_temp_files():
+    """Clean up the folder of temporary files.
+    
+    @post If the temp folder did not yet exist, it is created.
+    @post All files in the temp folder are deleted.
+    """
     if not os.path.exists(config.PATH_TEMP):
         os.makedirs(config.PATH_TEMP)
     # for root, _, files in os.walk(config.PATH_TEMP):
@@ -43,12 +48,30 @@ def cleanup_temp_files():
         if os.path.isfile(fpath):
             os.unlink(fpath)
 
-def dump_to_cache(cache, model, name):
+def dump_to_cache(cache, obj, name):
+    """Dumps the given object to cache and a temporary pickle file.
+
+    @param cache: A Flask cache object.
+    @param obj: The object to be dumped.
+    @param name: The name of the object to be dumped.
+    @post: The object was saved to the cache.
+    @post: The object was pickled to `temp/{name}.pkl`.
+    """
     fpath = os.path.join(config.PATH_TEMP , f"{name}.pkl")
-    pickle.dump(model, open(fpath, "wb"))
-    cache.set(name, model)
+    pickle.dump(obj, open(fpath, "wb"))
+    cache.set(name, obj)
 
 def load_from_cache(cache, name):
+    """Load the given object from cache.
+    
+    @param cache: A Flask cache object.
+    @param name: The name of the object to be loaded.
+    @pre: The object was saved as a pickle file in the temp/ directory under
+        the same name.
+    @return: The object, either loaded from the cache or from the pickle file
+        if the cache has expired. Returns None if not found in cache nor in a
+        pickle file.
+    """
     # NOTE: in a multi-user application, should also incorporate a user ID
     # NOTE: assumes varname in cache and varname in temp folder are equal
     #       (varname in temp folder should get a session_id as well)
@@ -58,12 +81,19 @@ def load_from_cache(cache, name):
             model = pickle.load(open(f"temp/{name}.pkl", "rb"))
             cache.set(name, model)
         except FileNotFoundError:
+            print(f"[WARNING] File '{name}' not found in cache or in pickle file.")
             model = None
     return model
 
 
 def init_btrex(rf, X, y):
-    """CALLBACK: on each random forest fit"""
+    """Initialize the Bellatrex object for a given dataset.
+    
+    @param rf: A RandomForest object.
+    @param X: A pandas DataFrame containing the features.
+    @param y: A pandas Series containing the target attribute.
+    @return: The initialized Bellatrex object.
+    """
     rf_packed = pack_trained_ensemble(rf.rf)
     setup = "auto"
     if rf.task == "survival analysis":
@@ -75,12 +105,20 @@ def init_btrex(rf, X, y):
     return btrex
 
 def fit_btrex(btrex, sample):
-    """CALLBACK: on each slider change"""
+    """Fits the Bellatrex object to a given sample.
+    
+    @param btrex: An initialized Bellatrex object.
+    @param sample: A pandas DataFrame where the first row represents the sample
+        to fit the btrex object to.
+    @return: A Bellatrex explanation object.
+    """
     expl = btrex.explain(sample, 0)
     return expl
 
 def plot_and_save_btrex(expl, y_pred_train=None, plot_max_depth=5):
-    """CALLBACK: on each slider change AND on each plot_max_depth change"""
+    """[DEPRECATED] Inefficient to save to file each time. TODO: integrate into
+    `plot_btrex_svg`, make it possible to also save a PNG there.
+    """
     fig, axs = expl.plot_visuals(
         plot_max_depth=plot_max_depth, preds_distr=y_pred_train, 
         conf_level=0.9, tot_digits=4, show=False
@@ -89,7 +127,15 @@ def plot_and_save_btrex(expl, y_pred_train=None, plot_max_depth=5):
     plt.close(fig)
 
 def plot_btrex_svg(expl, y_pred_train=None, plot_max_depth=5):
-    """CALLBACK: on each slider change AND on each plot_max_depth change"""
+    """Generate the Bellatrex visualisation.
+    
+    @param expl: A Bellatrex explanation object.
+    @param y_pred_train: Predictions by the random forest for each training data
+        sample. If None, the training distribution at the bottom is not drawn.
+    @param plot_max_depth: The maximum rule depth to display in the figure.
+        All deeper splits are aggregated to a single value.
+    @return: The generated image, as a string.
+    """
     if y_pred_train is not None:
         y_pred_train = np.array(y_pred_train)
     fig, axs = expl.plot_visuals(
@@ -118,16 +164,17 @@ def plot_btrex_svg(expl, y_pred_train=None, plot_max_depth=5):
     #     svg = re.sub(r'height="[\d.]+pt"', f'height="{height_pt}pt"', svg)
     return svg
 
-def generate_sliders(df, target):
+def generate_sliders(X):
     """Generate slider components to edit sample data.
     
-    CALLBACK: upon each upload of new dataset
+    @param X: A pandas DataFrame containing the features.
+    @return: A list of slider divs. Each slider div contains the slider label 
+        (string) and a div containing the slider itself. 
+        - The div surrounding each slider can be used for slider gradients:
+          id={'type': 'slider-gradient', 'index': 'feature_name'}
+        - The slider component itself can be addressed as:
+          id={'type': 'slider', 'index': 'feature_name'}
     """
-    # Data preprocessing
-    if isinstance(target, str):
-        target = [target]
-    X = df.drop(columns=target)
-    # Construct the sliders
     sliders = []
     for col in X.columns:
         feature = X[col].astype(float)
@@ -163,17 +210,25 @@ def generate_sliders(df, target):
     return sliders
 
 def sort_sliders(sliders, rf):
-    """Sort the slider components based on random forest feature importances.
-    
-    CALLBACK: upon training of random forest
+    """[NOT USED] Sort the slider components based on random forest feature 
+    importances. Will not work for random survival forests.
     """
     importances = rf.feature_importances_
     return sliders[np.argsort(importances)]
 
 def generate_rules(rf, sample):
-    """Generate the interactive rules graph.
-    
-    CALLBACK: upon any slider change (only updating the lines, not creating them tho!)
+    """Generate a dataframe with information about all the rule paths.
+
+    @param rf: A trained RandomForest instance.
+    @param sample: A pandas DataFrame where the first row represents the sample
+        to generate the rule paths of.
+    @return: A pandas DataFrame where each row represents one node and with the
+        following columns:
+        - tree: An integer representing the index of the tree for this node.
+        - Depth: An integer representing the depth of the node in the tree.
+        - Prediction: A float representing the partial prediction at this node,
+            based on prototype aggregation.
+        - split: A string representing the split in textual form.
     """
     path_forest, start_tree_ind = rf.decision_path(sample)
 
@@ -240,17 +295,36 @@ def generate_rules(rf, sample):
     rule_txt = np.concatenate(rule_txt)
     rule_val = np.concatenate(rule_val).squeeze() # if single-output...
     rules = np.vstack((rule_indicator, rule_depth, rule_val, rule_txt)).T
-    rules = pd.DataFrame(rules, columns=["tree","Depth","Prediction","rule"]
-        ).astype({"tree":int, "Depth":int, "Prediction":float, "tree":int})
+    rules = pd.DataFrame(rules, columns=["tree","Depth","Prediction","split"]
+        ).astype({"tree":int, "Depth":int, "Prediction":float, "split":str})
     return rules
 
 def init_rules_graph(rules, y_pred_train=None):
-    fig = px.line(rules, x="Prediction", y="Depth", line_group="tree", #text="rule",
+    """Initialize the graph displaying all random forest rule paths.
+
+    @param rules: A pandas DataFrame with the rules, as generated by 
+        `generate_rules`.
+    @param y_pred_train: Predictions by the random forest for each training data
+        sample. If None, trees are not colored by their leaf prediction.
+    @return: A plotly figure.
+    """
+    if config.TOOLTIP_PARTIAL_RULE_PATH:
+        rules["partial_rule"] = rules.groupby("tree").split.apply(
+            lambda s: (s + "<br>").cumsum().str[:-4]
+            ).values
+        txt = ["this","previous"][config.TOOLTIP_PREVIOUS_SPLIT]
+        hoverdata = "partial_rule"
+        hovertemplate = "<b>Tree %{customdata[0]} -- Partial rule path:</b><br>%{customdata[1]} <b>" + f"({txt} split)</b><extra></extra>"
+
+    else:
+        hoverdata = "split"
+        hovertemplate = "<b>Tree %{customdata[0]}</b><br>Split: %{customdata[1]}<extra></   extra>"
+    fig = px.line(rules, x="Prediction", y="Depth", line_group="tree",
         # range_x=(np.min(y_pred_train), np.max(y_pred_train)), # target min and max over the whole dataset
         markers=True,
         # hover_name="tree",
-        # hover_data={"rule": True, "Depth":False},
-        custom_data=["tree", "rule"],
+        # hover_data={"split": True, "Depth":False},
+        custom_data=["tree", hoverdata],
     )
     fig.update_layout(
         margin=dict(l=0, r=0, t=15, b=0),
@@ -260,9 +334,9 @@ def init_rules_graph(rules, y_pred_train=None):
         # line=dict(width=1),
         line=dict(width=1), #, color="gray"),
         marker=dict(size=3, symbol="circle"), #, color="gray"),
+        # marker=dict(size=5, symbol="arrow", angleref="next"), # TODO New in plotly 5.11... https://plotly.com/python/marker-style/
         # marker=dict(size=6, symbol="triangle-up", color="black"),
-        hovertemplate="<b>Tree %{customdata[0]}</b><br>Split: %{customdata[1]}<extra></extra>"
-        # text=rules["rule"], 
+        hovertemplate=hovertemplate
         # textposition="top center",
     )
     # COLOR OF THE LINES
@@ -313,6 +387,17 @@ def init_rules_graph(rules, y_pred_train=None):
     return fig
 
 def generate_neighborhood_predictions(rf, X, sample):
+    """Generate predictions from the univariate neighborhood of the given sample.
+
+    @param rf: A trained RandomForest instance.
+    @param X: A pandas DataFrame containing the features.
+    @param sample: A pandas DataFrame where the first row represents the sample
+        to fit the btrex object to.
+    @return: A pandas Series with n_quantile x n_feature predictions, where
+        n_quantiles is based on config.QUANTILES. In the index, it is indicated
+        which feature in `sample` was changed for each prediction and to what
+        quantile and value it was changed. 
+    """
     # GENERATE THE PREDICTIONS
     # Preallocate the neighborhood instances
     # step = 0.005=
@@ -410,6 +495,8 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
         # ),
         margin=dict(l=0, r=0, t=15, b=0),
     )
+    fig.update_xaxes(showspikes=True)
+    fig.update_yaxes(showspikes=True)
     if config.YSCALE_NEIGHBORHOOD_GLOBAL:
         fig.update_layout(
             yaxis_range=[rf.minpred, rf.maxpred],
@@ -524,7 +611,7 @@ def load_defaults(scenario=0):
     y_pred_train = rf.predict(X)
 
     # Generate sliders and sample to explain
-    sliders = generate_sliders(df, target=target)
+    sliders = generate_sliders(X)
     sample = {slider.children[1].children[0].id["index"]: slider.children[1].children[0].value
               for slider in sliders}
     sample = pd.DataFrame(sample, index=[0])
@@ -747,8 +834,9 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
         return dash.no_update, dash.no_update, dash.no_update
     df = json2pandas(json_data)
     data_table = df.to_dict('records')
+    X, y = split_input_output(df, target)
     # Generate sliders and sample
-    sliders = generate_sliders(df, target)
+    sliders = generate_sliders(X)
     sample = {slider.children[1].children[0].id["index"]: slider.children[1].children[0].value
               for slider in sliders}
     sample = pd.DataFrame(sample, index=[0])
@@ -757,7 +845,6 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     rules = generate_rules(rf, sample)
     fig_all_rules = init_rules_graph(rules, y_pred_train)
     # Generate bellatrex figure
-    X, y = split_input_output(df, target)
     btrex = init_btrex(rf, X, y)
     expl = fit_btrex(btrex, sample)
     dump_to_cache(cache, btrex, "btrex")

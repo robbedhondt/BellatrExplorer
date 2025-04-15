@@ -3,6 +3,7 @@ import numpy as np
 
 # User-changeable parameters
 TOOLTIP_PREVIOUS_SPLIT = False
+TOOLTIP_PARTIAL_RULE_PATH = True
 COLORMAP = "viridis"
 QUANTILES = np.linspace(0, 1, 101)
 SLIDER_TRIM = 0.05 # 5 percent trim from slider background gradient

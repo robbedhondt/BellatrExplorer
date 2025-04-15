@@ -44,10 +44,13 @@ The app will now be available on http://127.0.0.1:8050/.
 - General
     - P2: Add an optional UMAP visualisation that computes in the background. For each feature you can draw a line from the sample to where it would move in the visualisation if you change that feature in that way. You could also display the closest training sample somehow and indicate how far that one is from the current sample (to see how "out of distribution" you are).
         - Inverse UMAP: click a point on the UMAP and transform it back into a instance
+        - Can be put below "instance selection" sliders?
     - P2: Better handling of dataset input: autoprocess categorical features (OHE if not castable to int), impute missing values... The datatable at the bottom should contain the "cleaned up" data, so the user can verify and compare to the uploaded data.
     - P2: Potential bug: user changes "target" after training; our program relies on value of "target" being associated to the currently trained random forest... Solution: save "target" as dcc.Store or as attribute of the `RandomForest` model? (even better: upon pressing the train button, write the full setup as a dictionary to a single dcc.Store)
     - P3: Look into TODOs around the script, e.g. optimize generate_rules
 - Modeling
+    - P3: Using the fetch_ucimlrepo package, make searching the UCI ML repo an option? No survival analysis though
+    - P3: Make it possible to hide this pane with a button (useful after modeling when it is no longer needed)
     - P3: Show more info: dataset descriptive statistics (n, p, ...), RF train and OOB performance (so user can assess overfitting)...
     - P3: Possibly integrate "dataset-selector" and "upload-dataset" more tightly?
         - One of the dropdown values could be "upload your own dataset..."
@@ -62,15 +65,22 @@ The app will now be available on http://127.0.0.1:8050/.
 - All rules graph
     - P3: set max rule depth: through callback with fig.update_yaxes(range=[None, value])
     - P2: Add a legend and selector that would highlight all the rules based on one particular feature (similar to the feature selector in univariate feature effects graph)
-    - P2: Add previous splits to the tooltip of the hovered node (see documentation [dcc.Tooltip](https://dash.plotly.com/dash-core-components/tooltip)). See if this does not conflict with `config.TOOLTIP_PREVIOUS_SPLIT`.
+    - P3: Maybe color the nodes by the same colors that are used in the "univariate feature effects graph"?
+    - P2: Add previous splits to the tooltip of the hovered node (see documentation [dcc.Tooltip](https://dash.plotly.com/dash-core-components/tooltip)). See if this does not conflict with `config.TOOLTIP_PREVIOUS_SPLIT`. (the latter can actually be removed when this is implemented!)
     - P2: Force graph xlim to the range of all the predictions made by the RF? Or not??
     - P2: Somehow indicate the current prediction (vertical dotted line, as in btrex)
     - P3: Implement something for the lasso select? Highlight all rules in the selection?
+    - P3: Clicking a node could generate a separate graph with the rule path of the clicked decision tree (similar to the Bellatrex visualisation)
 - Univariate feature effects graph
 - Bellatrex graph
     - P2: Use older bellatrex graph implementation? That can be packaged along with this repo? (the alignment with the arrow at the bottom is not always perfect...)
+    - P3: Potentially remake the Bellatrex plot in pure plotly
+        - Use code from Arthur!
+        - For distribution subplot: https://plotly.com/python/subplots/#custom-sized-subplot-with-subplot-titles
 - Data table
     - P3: https://dash.plotly.com/datatable table click callback so if you click one of the rows in the datatable it's highlighted and the slider values are changed to it?
+- Deployment
+    - Is tensorflow serving of interest? https://www.tensorflow.org/tfx/guide/serving
 ```python
     # TODO: write a demo app with 3 buttons to truly test the difference of these
     #       three methods
