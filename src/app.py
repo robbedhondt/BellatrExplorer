@@ -80,8 +80,9 @@ def load_from_cache(cache, name):
         try:
             model = pickle.load(open(f"temp/{name}.pkl", "rb"))
             cache.set(name, model)
+            print(f"{current_time()} [INFO] Cache invalid, loaded '{name}' from pickle file.")
         except FileNotFoundError:
-            print(f"[WARNING] File '{name}' not found in cache or in pickle file.")
+            print(f"{current_time()} [WARNING] File '{name}' not found in cache or in pickle file.")
             model = None
     return model
 
@@ -182,8 +183,8 @@ def generate_sliders(X):
         minval = feature.min()
         maxval = feature.max()
         # selval = feature.mean() # selected value
-        # selval = feature.iloc[0]
-        selval = feature.median()
+        selval = feature.iloc[0] # more realistic, and is automatically clamped to closest slider options
+        # selval = feature.median()
         slider_component = dcc.Slider(
             min=minval, max=maxval, value=selval, step=None, #step=(maxval - minval)/100, 
             id={'type': 'slider', 'index': col},
@@ -297,6 +298,10 @@ def generate_rules(rf, sample):
     rules = np.vstack((rule_indicator, rule_depth, rule_val, rule_txt)).T
     rules = pd.DataFrame(rules, columns=["tree","Depth","Prediction","split"]
         ).astype({"tree":int, "Depth":int, "Prediction":float, "split":str})
+    if config.TOOLTIP_PARTIAL_RULE_PATH:
+        rules["partial_rule"] = rules.groupby("tree").split.apply(
+            lambda s: (s + "<br>").cumsum().str[:-4]
+            ).values
     return rules
 
 def init_rules_graph(rules, y_pred_train=None):
@@ -309,25 +314,20 @@ def init_rules_graph(rules, y_pred_train=None):
     @return: A plotly figure.
     """
     if config.TOOLTIP_PARTIAL_RULE_PATH:
-        rules["partial_rule"] = rules.groupby("tree").split.apply(
-            lambda s: (s + "<br>").cumsum().str[:-4]
-            ).values
         txt = ["this","previous"][config.TOOLTIP_PREVIOUS_SPLIT]
-        hoverdata = "partial_rule"
-        hovertemplate = "<b>Tree %{customdata[0]} -- Partial rule path:</b><br>%{customdata[1]} <b>" + f"({txt} split)</b><extra></extra>"
-
+        splitinfo = "partial_rule"
+        hovertemplate  = "<b>Tree %{customdata[0]} -- Partial rule path:</b><br>"
+        hovertemplate += "%{customdata[1]} <b>" + f"({txt} node)</b><extra></extra>"
     else:
-        hoverdata = "split"
-        hovertemplate = "<b>Tree %{customdata[0]}</b><br>Split: %{customdata[1]}<extra></   extra>"
+        splitinfo = "split"
+        hovertemplate  = "<b>Tree %{customdata[0]}</b><br>"
+        hovertemplate += "Split: %{customdata[1]}<extra></extra>"
     fig = px.line(rules, x="Prediction", y="Depth", line_group="tree",
         # range_x=(np.min(y_pred_train), np.max(y_pred_train)), # target min and max over the whole dataset
         markers=True,
         # hover_name="tree",
         # hover_data={"split": True, "Depth":False},
-        custom_data=["tree", hoverdata],
-    )
-    fig.update_layout(
-        margin=dict(l=0, r=0, t=15, b=0),
+        custom_data=["tree", splitinfo],
     )
     # LINE SETTINGS
     fig.update_traces(
@@ -371,7 +371,10 @@ def init_rules_graph(rules, y_pred_train=None):
         fig.add_trace(colorbar_trace)
 
     # PLOT LAYOUT
-    fig.update_layout(plot_bgcolor="white")
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=15, b=0),
+        template="plotly_white",
+    )
     shared_axes_params = dict(
         mirror=True,
         ticks='outside',
@@ -550,7 +553,14 @@ def generate_sample_datasets():
     # CALIFORNIA HOUSING
     df = fetch_california_housing(as_frame=True)#'data']
     df = pd.concat((df["data"], df["target"]), axis=1)
-    df.to_csv(Path("assets/data/california_housing.csv"), index=False)
+    # Very large dataset: trim final percentiles (outliers, small subset) for visual clarity in the demo
+    mask = pd.Series(True, index=df.index)
+    for col in ["AveRooms", "AveBedrms", "Population", "AveOccup"]:
+        new_maxval = np.quantile(df[col], 0.99)
+        mask = mask & (df[col] <= new_maxval)
+    print(f"[INFO] Dropping {sum(~mask)} outliers for cal housing")
+    df = df.loc[mask]
+    df.to_csv(Path("assets/data/housing_california.csv"), index=False)
 
     # # FLCHAIN
     # X, y = load_flchain()
@@ -586,10 +596,10 @@ app = Dash(__name__) #, prevent_initial_callbacks="initial_duplicate")
 app.title = "BellatrExplorer"
 
 # Initialize defaults for dataframe and figures
-def load_defaults(scenario=0):
+def load_defaults(scenario=3):
     # Parameters
     if scenario == 0:
-        fname = "regress_tutorial.csv"
+        fname = "airfoil_self_noise.csv"
         target = "norm-sound"
         task = "regression"
     elif scenario == 1:
@@ -597,9 +607,13 @@ def load_defaults(scenario=0):
         target = "Class"
         task = "classification"
     elif scenario == 2:
-        fname = "whas500.csv"
+        fname = "heart_attack_worcester.csv"
         target = "time_to_death"
         task = "survival analysis"
+    elif scenario == 3:
+        fname = "housing_california.csv"
+        target = "MedHouseVal"
+        task = "regression"
     else:
         raise Exception(f"Invalid scenario '{scenario}'.")
 
@@ -627,7 +641,7 @@ def load_defaults(scenario=0):
     # Generate rules graph
     rules = generate_rules(rf, X.iloc[[0],:])
     fig_rules = init_rules_graph(rules, y_pred_train)
-    fig_rules.update_xaxes(range=[y.min(), y.max()], constrain="domain") # TODO not working
+    # fig_rules.update_xaxes(range=[y.min(), y.max()], constrain="domain") # TODO not working
     
     # Generate bellatrex graph
     btrex = init_btrex(rf, X, y)
@@ -895,6 +909,7 @@ def update_rules_graph(slider_values, slider_ids, y_pred_train):
     # Generate rules from sample
     rules = generate_rules(rf, sample)
     rules = rules.set_index("tree", drop=False)
+    splitinfo = ["split", "partial_rule"][config.TOOLTIP_PARTIAL_RULE_PATH]
 
     # Define trace colorizer
     cmap = plt.get_cmap(config.COLORMAP)
@@ -906,7 +921,7 @@ def update_rules_graph(slider_values, slider_ids, y_pred_train):
     for j in rules.index.unique():
         patched_fig["data"][j]["x"] = rules.loc[j, 'Prediction']
         patched_fig["data"][j]["y"] = rules.loc[j, 'Depth']
-        patched_fig["data"][j]["customdata"] = rules.loc[j, ["tree", "rule"]].values
+        patched_fig["data"][j]["customdata"] = rules.loc[j, ["tree", splitinfo]].values
         leaf_pred = rules.loc[j, 'Prediction'].iloc[-1]
         patched_fig["data"][j]["line"]["color"] = color(leaf_pred)
     return patched_fig, rules.to_json(date_format='iso', orient='split')

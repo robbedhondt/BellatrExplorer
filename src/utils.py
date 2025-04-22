@@ -39,6 +39,9 @@ def split_input_output(df, target):
     y = df[target]
     return X, y
 
+def current_time():
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+
 class RandomForest:
     def __init__(self, task, **kwargs):
         self.task = task
