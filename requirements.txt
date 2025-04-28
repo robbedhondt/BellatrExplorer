@@ -10,3 +10,4 @@ flask-caching
 # umap-learn
 # ipykernel
 scikit-survival
+bellatrex
