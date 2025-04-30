@@ -1,4 +1,4 @@
-# BellatrExplorer: Random forest explainability toolbox based on Bellatrex
+# BellatrExplorer: Random forest explainability toolbox based on [Bellatrex](https://github.com/Klest94/Bellatrex)
 
 <img src="src/assets/screenshots/dashboard_v2.png" alt="Dashboard Screenshot" style="max-width: 800px;"/>
 
