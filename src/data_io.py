@@ -17,8 +17,7 @@ def get_cache_key(name):
     if config.IS_DEPLOYED:
         user_id = session.get('user_id', 'default')
         return f"{name}_{user_id}"
-    else:
-        return name
+    return name
 
 def cleanup_temp_files():
     """Clean up the folder of temporary files.
@@ -132,7 +131,7 @@ def generate_sample_datasets():
 
     # WHAS500
     X, y = load_whas500()
-    y = surv2single(cens=y["fstat"], time=y["lenfol"])
+    y = surv2single(cens=y["fstat"], time_to_event=y["lenfol"])
     y = pd.Series(y, name="time_to_death")
     df = pd.concat((X,y), axis=1)
     df.to_csv(Path("assets/data/whas500.csv"), index=False)

@@ -149,9 +149,9 @@ app.layout = make_app_layout(defaults)
 # @app.callback(Input("url", "pathname"))
 # def init_cache(_):
 #     """Lazy loading: dump defaults to cache only when session has initialized properly."""
-#     dump_to_cache(cache, model, "model")
+#     dump_to_cache(cache, defaults["model"], "model")
 #     dump_to_cache(cache, defaults["btrex"], "btrex")
-#     dump_to_cache(cache, defaults["expl"], "expl")
+#     dump_to_cache(cache, defaults["expl"] , "expl" )
 
 @callback(
     Output('dataframe', 'data', allow_duplicate=True),
@@ -273,7 +273,8 @@ def train_random_forest(is_disabled, json_data, target, task, n_trees, max_depth
     # Train the random forest
     try:
         X, y = split_input_output(df, target)
-        rf = RandomForest(task, random_state=42, n_estimators=n_trees, max_depth=max_depth, max_features=max_features)
+        rf = RandomForest(task, random_state=42, n_estimators=n_trees, 
+            max_depth=max_depth, max_features=max_features)
         rf.fit(X, y)
         y_pred_train = rf.predict(X)
         dump_to_cache(cache, rf, "model")
@@ -419,7 +420,9 @@ def update_btrex_graph(_, slider_values, slider_ids, max_depth, y_pred_train):
     prevent_initial_call=True
 )
 def update_btrex_depth(max_depth, y_pred_train):
-    # TODO: can be integrated into `update_btrex_graph` with callback_context
+    """Update the bellatrex graph when a new max_depth is selected."""
+    # NOTE: can be integrated into `update_btrex_graph` with callback_context
+    # (although then it will take more input arguments so more data transferred)
     expl = load_from_cache(cache, "expl")
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return svg
@@ -451,4 +454,13 @@ def update_btrex_depth(max_depth, y_pred_train):
 
 # Run the app
 if __name__ == '__main__':
-    app.run(debug=True)
+    if config.IS_DEPLOYED:
+        host = '0.0.0.0'
+    else:
+        host = '127.0.0.1'
+
+    app.run(
+        port=8050,
+        host=host,
+        debug=True
+    )
