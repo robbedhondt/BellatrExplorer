@@ -1,0 +1,92 @@
+stages:
+  - build
+  - deploy
+
+cache:
+  key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+
+#   ____        _ _     _ 
+#  | __ ) _   _(_) | __| |
+#  |  _ \| | | | | |/ _` |
+#  | |_) | |_| | | | (_| |
+#  |____/ \__,_|_|_|\__,_|
+                        
+.build_bellatrexplorer:
+  stage: build
+  script:
+    - export BASE_DIR='/usr/local/docker/bellatrexplorer'
+    - echo "Hello $GITLAB_USER_LOGIN - start build the $CI_COMMIT_BRANCH branch."
+    - echo "nothing to do for build"
+# build when commit to dev branch
+build_bellatrexplorer_dev:
+  stage: build
+  extends: .build_bellatrexplorer
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+  tags:
+    - bellatrexplorer-dev
+  environment:
+    name: develop
+    url: https://www.t.kulak.kuleuven.be/bellatrexplorer
+# build when commit to main branch
+build_bellatrexplorer_prod:
+  stage: build
+  extends: .build_bellatrexplorer
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  tags:
+    - bellatrexplorer-prod
+  environment:
+    name: production
+    url: https://www.kulak.kuleuven.be/bellatrexplorer
+
+#   ____             _             
+#  |  _ \  ___ _ __ | | ___  _   _ 
+#  | | | |/ _ \ '_ \| |/ _ \| | | |
+#  | |_| |  __/ |_) | | (_) | |_| |
+#  |____/ \___| .__/|_|\___/ \__, |
+#             |_|            |___/ 
+.deploy_bellatrexplorer:
+  stage: deploy
+  script:
+    - echo "Deploy from the $CI_COMMIT_BRANCH branch."
+    - export DATE_WITH_TIME=`date "+%Y%m%d-%H%M%S-$$"`
+    - export BASE_DIR='/usr/local/docker/bellatrexplorer'
+    # copy everything to new release folder
+    - rsync -a --delete . $BASE_DIR/ --exclude .git
+    #- cp "$ENV_CONFIG" "$BASE_DIR/.env"
+    - cd $BASE_DIR
+    - docker compose up --build --detach
+    - sleep 30
+    - docker compose logs
+    - date
+# deploy when commit to dev branch
+deploy_bellatrexplorer_dev:
+  stage: deploy
+  extends: .deploy_bellatrexplorer
+  dependencies:
+    - build_bellatrexplorer_dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+  tags:
+    - bellatrexplorer-dev
+  environment:
+    name: develop
+    url: https://www.t.kulak.kuleuven.be/bellatrexplorer
+# deploy when commit to main branch
+deploy_bellatrexplorer_prod:
+  stage: deploy
+  extends: .deploy_bellatrexplorer
+  dependencies:
+    - build_bellatrexplorer_prod
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      # Do not run automatically.
+      # Wait for a human to click on play.
+      when: manual
+  tags:
+    - bellatrexplorer-prod
+  environment:
+    name: production
+    url: https://www.kulak.kuleuven.be/bellatrexplorer
+  
