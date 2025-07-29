@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 
 # User-changeable parameters
@@ -23,4 +24,4 @@ PATH_TEMP   = os.path.join(os.path.dirname(__file__), "temp")
 IS_DEPLOYED = (os.getenv("DEPLOYED", default="False") == "True")
 
 # Helper variables
-last_cleanup_time = 0
+last_cleanup_time = time.time() - 3600
