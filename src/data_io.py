@@ -14,9 +14,15 @@ def get_cache_key(name):
         {name}_{user_id} in case the application is currently deployed on a 
         web server (see `config.IS_DEPLOYED`).
     """
-    if config.IS_DEPLOYED:
-        user_id = session.get('user_id', 'default')
-        return f"{name}_{user_id}"
+    # # TODO: this does not work yet, see error message:
+    # # > RuntimeError: Working outside of request context.
+    # #
+    # # > This typically means that you attempted to use functionality that needed
+    # # > an active HTTP request. Consult the documentation on testing for
+    # # > information about how to avoid this problem.
+    # if config.IS_DEPLOYED:
+    #     user_id = session.get('user_id', 'default')
+    #     return f"{name}_{user_id}"
     return name
 
 def cleanup_temp_files():
