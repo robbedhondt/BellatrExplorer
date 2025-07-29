@@ -186,9 +186,13 @@ h2 {
 }
 
 .button.disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-    pointer-events: none; /* Prevents hover effects */
+    border-radius: 10px;
+    background: #f0f0f0; /* same background as hover */
+    padding: 5px 15px;
+    color: black;
+
+    cursor: not-allowed; /* doesn't seem to work? */
+    pointer-events: none; /* prevents hover effects (?) */
 }
 
 /* Customizing slider appearance */

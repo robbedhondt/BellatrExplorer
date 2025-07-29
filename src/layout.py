@@ -90,6 +90,20 @@ def get_modeling_pane(defaults):
     # # is not ideal I guess.
     # datasets = datasets + [{"disabled":True, "label":"(uploaded dataset)", "value":"(uploaded dataset)"}]
 
+    # Conditional formatting of the "upload dataset" button: in deployment, this
+    # button is disabled because:
+    # - the security of the uploaded dataset cannot be guaranteed
+    # - the server is vulnerable for file upload attacks (no sanitization of 
+    #   file size, type, making sure there is no code or executable...)
+    if config.IS_DEPLOYED:
+        disabled = True
+        tooltip = "Uploading your own dataset is only supported when running locally."
+        classname = "button.disabled"
+    else:
+        disabled = False
+        tooltip = ""
+        classname = "button"
+
     return [
         html.H2("Modeling"),
         make_labeled_selectionbox("dataset-selector", "Dataset:",
@@ -97,8 +111,9 @@ def get_modeling_pane(defaults):
         # TODO can be implemented in the dropdown as an "upload dataset" option? or is it better to keep this separate button?
         html.Div(className="centered-content", style={"padding": "5px"}, children=[
             html.Div("or", style={"padding": "5px"}),
-            html.Button(className="button", children=dcc.Upload(
-                id='upload-dataset', multiple=False, children="upload a dataset")),
+            html.Button(className=classname, disabled=disabled, title=tooltip,
+                children=dcc.Upload(id='upload-dataset', 
+                    multiple=False, disabled=disabled, children="upload a dataset")),
             html.Div(className="centered-content", id="display-upload-fname", style={"padding": "5px"}),
         ]),
         make_labeled_selectionbox("target-selector", "Target:",

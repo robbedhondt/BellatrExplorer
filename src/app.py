@@ -25,6 +25,8 @@ from utils import (
     split_input_output,
     RandomForest
 )
+import uuid
+from flask import session
 
 #   _   _ _   _ _ _ _   _           
 #  | | | | |_(_) (_) |_(_) ___  ___ 
@@ -32,21 +34,45 @@ from utils import (
 #  | |_| | |_| | | | |_| |  __/\__ \
 #   \___/ \__|_|_|_|\__|_|\___||___/
                                   
+def get_cache_key(name):
+    """Get the unique cache key for object `name`.
+    
+    @param name: The name of the object to get the cache key for.
+    @return: The cache key, simply {name} in a localhost environment or
+        {name}_{user_id} in case the application is currently deployed on a 
+        web server (see `config.IS_DEPLOYED`).
+    """
+    if config.IS_DEPLOYED:
+        user_id = session.get('user_id', 'default')
+        return f"{name}_{user_id}"
+    else:
+        return name
+
 def cleanup_temp_files():
     """Clean up the folder of temporary files.
     
     @post If the temp folder did not yet exist, it is created.
-    @post All files in the temp folder are deleted.
+    @post All files in the temp folder older than one day (based on last time
+        of modification) are deleted.
     """
+    # Don't clean up temp files if they have been cleaned up in the past hour.
+    now = time.time()
+    if now - config.last_cleanup_time < 3600:
+        return
+    config.last_cleanup_time = now
+    # Create the temp directory if it does not exist yet
     if not os.path.exists(config.PATH_TEMP):
         os.makedirs(config.PATH_TEMP)
-    # for root, _, files in os.walk(config.PATH_TEMP):
-    #     for f in files:
-    #         os.unlink(os.path.join(root, f))
+    # Remove stale files
+    cutoff = now - 24*3600 # all files modified within the last day
     for f in os.listdir(config.PATH_TEMP):
         fpath = os.path.join(config.PATH_TEMP, f)
         if os.path.isfile(fpath):
-            os.unlink(fpath)
+            if os.path.getmtime(fpath) < cutoff:
+                os.unlink(fpath)
+    # for root, _, files in os.walk(config.PATH_TEMP):
+    #     for f in files:
+    #         os.unlink(os.path.join(root, f))
 
 def dump_to_cache(cache, obj, name):
     """Dumps the given object to cache and a temporary pickle file.
@@ -54,12 +80,15 @@ def dump_to_cache(cache, obj, name):
     @param cache: A Flask cache object.
     @param obj: The object to be dumped.
     @param name: The name of the object to be dumped.
+    @post: A call to `cleanup_temp_files` was made.
     @post: The object was saved to the cache.
-    @post: The object was pickled to `temp/{name}.pkl`.
+    @post: The object was pickled to `temp/{get_cache_key(name)}.pkl`.
     """
-    fpath = os.path.join(config.PATH_TEMP , f"{name}.pkl")
+    cleanup_temp_files()
+    key = get_cache_key(name)
+    fpath = os.path.join(config.PATH_TEMP , f"{key}.pkl")
     pickle.dump(obj, open(fpath, "wb"))
-    cache.set(name, obj)
+    cache.set(key, obj)
 
 def load_from_cache(cache, name):
     """Load the given object from cache.
@@ -67,18 +96,17 @@ def load_from_cache(cache, name):
     @param cache: A Flask cache object.
     @param name: The name of the object to be loaded.
     @pre: The object was saved as a pickle file in the temp/ directory under
-        the same name.
+        `{get_cache_key(name)}.pkl`.
     @return: The object, either loaded from the cache or from the pickle file
         if the cache has expired. Returns None if not found in cache nor in a
         pickle file.
     """
-    # NOTE: in a multi-user application, should also incorporate a user ID
-    # NOTE: assumes varname in cache and varname in temp folder are equal
-    #       (varname in temp folder should get a session_id as well)
-    model = cache.get(name)
+    key = get_cache_key(name)
+    model = cache.get(key)
     if model is None:
         try:
-            model = pickle.load(open(f"temp/{name}.pkl", "rb"))
+            fpath = os.path.join(config.PATH_TEMP, f"{key}.pkl")
+            model = pickle.load(open(fpath, "rb"))
             cache.set(name, model)
             print(f"{current_time()} [INFO] Cache invalid, loaded '{name}' from pickle file.")
         except FileNotFoundError:
@@ -594,6 +622,21 @@ def generate_sample_datasets():
 # Initialize the app
 app = Dash(__name__) #, prevent_initial_callbacks="initial_duplicate")
 app.title = "BellatrExplorer"
+# server = app.server
+app.server.secret_key = os.environ.get("SECRET_KEY", "dev-only-key")
+
+# @app.server.before_request
+# def get_session_id():
+#     if "uid" not in session:
+#         session["uid"] = str(uuid.uuid4())
+#     return session["uid"]
+
+# session_id = get_session_id()
+
+@app.server.before_request
+def assign_user_id():
+    if 'user_id' not in session:
+        session['user_id'] = str(uuid.uuid4())
 
 # Initialize defaults for dataframe and figures
 def load_defaults(scenario=3):
@@ -675,11 +718,15 @@ def load_defaults(scenario=3):
 defaults = load_defaults()
 
 # Set up storage cache (later: to scale up to multi-process: use Redis or memcached)
-cache = Cache(app.server, config={"CACHE_TYPE": "simple"})
+cache = Cache(app.server, config={
+    "CACHE_TYPE": "simple", 
+    "CACHE_DEFAULT_TIMEOUT": 600
+})
 cleanup_temp_files()
-dump_to_cache(cache, defaults["model"], "model") 
+
+dump_to_cache(cache, defaults["model"], "model")
 dump_to_cache(cache, defaults["btrex"], "btrex")
-dump_to_cache(cache, defaults["expl"], "expl")
+dump_to_cache(cache, defaults["expl"] , "expl" )
 
 # App layout
 app.layout = make_app_layout(defaults)
@@ -690,6 +737,13 @@ app.layout = make_app_layout(defaults)
 #  | |__| (_| | | | |_) | (_| | (__|   <\__ \
 #   \____\__,_|_|_|_.__/ \__,_|\___|_|\_\___/
                                            
+# @app.callback(Input("url", "pathname"))
+# def init_cache(_):
+#     """Lazy loading: dump defaults to cache only when session has initialized properly."""
+#     dump_to_cache(cache, model, "model")
+#     dump_to_cache(cache, defaults["btrex"], "btrex")
+#     dump_to_cache(cache, defaults["expl"], "expl")
+
 @callback(
     Output('dataframe', 'data', allow_duplicate=True), 
     Output('user-feedback', 'children', allow_duplicate=True),
