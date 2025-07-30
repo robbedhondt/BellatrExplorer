@@ -460,7 +460,7 @@ if __name__ == '__main__':
         host = '127.0.0.1'
 
     app.run(
-        port=8050,
+        port=8091,
         host=host,
         debug=True
     )
