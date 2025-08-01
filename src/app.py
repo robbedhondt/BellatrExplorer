@@ -187,7 +187,7 @@ def load_default_dataset(fname):
     #     return dash.no_update, dash.no_update
     if fname is None: # > result of "Clear value"
         return dash.no_update, dash.no_update, dash.no_update
-    df = pd.read_csv(os.path.join("assets", "data", fname))
+    df = pd.read_csv(os.path.join(config.PATH_ASSETS, "data", fname))
     df = pandas2json(df)
     return df, "✅ File loaded successfully!", ""
 
