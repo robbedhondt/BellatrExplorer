@@ -10,4 +10,4 @@ services:
     build:
       context: .
     ports:
-      - 8050:8050
+      - 8091:8091
