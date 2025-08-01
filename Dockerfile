@@ -46,7 +46,7 @@ COPY . .
 ENV DEPLOYED=True
 
 # Expose the port that the application listens on.
-EXPOSE 8050
+EXPOSE 8091
 
 # Run the application.
 CMD python src/app.py
