@@ -64,9 +64,24 @@ def get_header():
         html.Div(className="header-content", children=[
             html.H1("BellatrExplorer"), 
             html.Div(style={"textAlign":"left", "margin":"10px"}, children=[
-                "Bellatrex publication: ",
-                html.A("DOI 10.1109/ACCESS.2023.3268866", href="https://doi.org/10.1109/ACCESS.2023.3268866")
-            ])
+                # Line 1
+                "Bellatrex materials: ",
+                html.A("publication", href="https://doi.org/10.1109/ACCESS.2023.3268866"),
+                # " (DOI 10.1109/ACCESS.2023.3268866), ",
+                ", ",
+                html.A("source code", href="https://github.com/KlestDedja/Bellatrex"),
+                ", ",
+                html.A("how to read the graph", href="https://itec.kuleuven-kulak.be/a-guide-to-bellatrex/"),
+                html.Br(),
+                # Line 2
+                "BellatrExplorer materials: ",
+                "publication (coming)",
+                # html.A("publication", ...),
+                ", ",
+                html.A("source code", href="https://github.com/robbedhondt/BellatrExplorer"),
+                ", ",
+                html.A("demo video", href="https://itec.kuleuven-kulak.be/bellatrexplorer/"),
+            ]),
         ]),
         html.Div(className="logos", children=[
             html.Img(src="assets/logos/combined.png", style={'height': '100pt', "margin":"10px"}),
