@@ -33,8 +33,10 @@ matplotlib.use("Agg")
 # Initialize the app
 app = Dash(__name__) #, prevent_initial_callbacks="initial_duplicate")
 app.title = "BellatrExplorer"
-# server = app.server
-app.server.secret_key = os.environ.get("SECRET_KEY", "dev-only-key")
+# app.server.secret_key = os.environ.get("SECRET_KEY", "dev-only-key")
+# NOTE: because information doesn't have to be persistent across sessions,
+#       we randomly generate the secret key on app startup
+app.server.secret_key = os.urandom(16)
 
 # @app.server.before_request
 # def get_session_id():
@@ -187,7 +189,7 @@ def load_default_dataset(fname):
     #     return dash.no_update, dash.no_update
     if fname is None: # > result of "Clear value"
         return dash.no_update, dash.no_update, dash.no_update
-    df = pd.read_csv(os.path.join("assets", "data", fname))
+    df = pd.read_csv(os.path.join(config.PATH_ASSETS, "data", fname))
     df = pandas2json(df)
     return df, "✅ File loaded successfully!", ""
 
@@ -454,13 +456,16 @@ def update_btrex_depth(max_depth, y_pred_train):
 
 # Run the app
 if __name__ == '__main__':
+    # TODO: debug = False should only be on the production branch...
     if config.IS_DEPLOYED:
         host = '0.0.0.0'
+        debug = False
     else:
         host = '127.0.0.1'
+        debug = True
 
     app.run(
         port=8091,
         host=host,
-        debug=True
+        debug=debug
     )
