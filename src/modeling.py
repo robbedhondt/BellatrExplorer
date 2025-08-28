@@ -134,31 +134,10 @@ def generate_rules(rf, sample):
         #   > for survanal n_outputs is len(unique_times_)
         values = tree.value[node_indices,:,-1]
         if rf.task == "survival analysis":
-            def median_survival_time(surv_probs):
-                surv_times = rf.unique_times_
-                idx = np.where(surv_probs <= 0.5)[0]
-                return surv_times[idx[0]] if len(idx) > 0 else surv_times[-1]
-            def mean_survival_time(surv_probs):
-                # This method is more sensitive to censoring and requires the tail of the survival curve to be well-behaved or truncated appropriately.
-                surv_times = rf.unique_times_
-                return np.trapezoid(surv_probs, surv_times)
-            rule_val[t] = np.apply_along_axis(
-                median_survival_time, axis=1, arr=values).squeeze()
-            # rule_val[t] = np.mean(values, axis=1) # mean probability over all the unique_times_ (crude integral of survival function, no effect for classification/regression)
-
-            # # Integrated cumulative hazard function
-            # chf = -np.log(values)
-            # chf[chf > np.log(1e-6)] = 0
-            # rule_val[t] = np.trapezoid(chf, rf.unique_times_)
-            # # # Avoiding taking log of (near-)zero
-            # # safe_surv_probs = values[values > 1e-6]
-            # # safe_surv_times = rf.unique_times_[values > 1e-6]
-            # # # compute cumulative hazard function
-            # # chf = -np.log(safe_surv_probs)
-            # # # integrate CHF to get RF prediction
-            # # rule_val[t] = np.trapezoid(chf, safe_surv_times)
-        else:
-            rule_val[t] = values
+            # values = aggregate_curves(values, rf.unique_times_, aggfunc=config.SURVIVAL_CURVE_AGGREGATION)
+            # Integrate the CHF as partial predictions
+            values = (1 - values[:, rf.estimators_[t].is_event_time_]).sum(axis=1)
+        rule_val[t] = values
 
     rule_len = [len(rule_val[t]) for t in range(n_trees)]
     rule_indicator = np.repeat(np.arange(n_trees), rule_len)
@@ -175,6 +154,42 @@ def generate_rules(rf, sample):
             ).values
     return rules
 
+def aggregate_curves(values, surv_times, aggfunc):
+    # Convenience function
+    def integrate_over_time(surv_probs):
+        return np.trapezoid(surv_probs, surv_times)
+    # Begin disambiguation
+    if aggfunc == "mean_proba":
+        return np.mean(values, axis=1)
+    elif aggfunc == "median_TTE":
+        # Time-to-event at predicted probability of 0.5
+        return surv_times[np.argmin(np.abs(values - 0.5), axis=1)]
+    elif aggfunc == "integr_KM":
+        # Trapezoidal integral of predicted Kaplan-Meier
+        # > more sensitive to censoring, requires tail to be well-behaved
+        # > or truncated appropriately
+        return np.apply_along_axis(integrate_over_time, axis=1, 
+            arr=values).squeeze()
+    elif aggfunc == "integr_CHF":
+        # Integrated cumulative hazard function
+        chf = -np.log(values+1e-3)
+        # chf[chf > np.log(1e-6)] = 0
+        return np.apply_along_axis(integrate_over_time, axis=1, 
+            arr=chf).squeeze()
+        # # Avoiding taking log of (near-)zero
+        # safe_surv_probs = values[values > 1e-6]
+        # safe_surv_times = surv_times[values > 1e-6]
+        # # compute cumulative hazard function
+        # chf = -np.log(safe_surv_probs)
+        # # integrate CHF to get RF prediction
+        # return np.trapezoid(chf, safe_surv_times)
+    elif aggfunc == "??TODO":
+        def median_survival_time(surv_probs):
+            surv_times = surv_times
+            idx = np.where(surv_probs <= 0.5)[0]
+            return surv_times[idx[0]] if len(idx) > 0 else surv_times[-1]
+        return np.apply_along_axis(
+            median_survival_time, axis=1, arr=values).squeeze()
 
 def generate_neighborhood_predictions(rf, X, sample):
     """Generate predictions from the univariate neighborhood of the given sample.

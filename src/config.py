@@ -11,7 +11,7 @@ SLIDER_TRIM = 0.05 # 5 percent trim from slider background gradient
 # BTREX_SCALE = 0.7 # Downscaler of the generated Bellatrex SVG
 YSCALE_NEIGHBORHOOD_GLOBAL = True
 # XSCALE_RULES_GLOBAL = True
-
+# SURVIVAL_CURVE_AGGREGATION = "integr_KM"
 # Constants
 # TODO: random forest parameter ranges?
 DEFAULT_N_TREES = 100
