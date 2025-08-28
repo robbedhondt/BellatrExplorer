@@ -114,7 +114,7 @@ def load_defaults(scenario=0):
         "y_pred_train": y_pred_train,
     }
 
-defaults = load_defaults()
+defaults = load_defaults(scenario=2)
 
 # Set up storage cache (later: to scale up to multi-process: use Redis or memcached)
 cache = Cache(app.server, config={
@@ -181,6 +181,7 @@ def init_session(_, session_id):
     prevent_initial_call=True
 )
 def parse_uploaded_data(contents, filename):
+    """Process a dataset uploaded by the user."""
     if contents is None:
         return dash.no_update, "❌ Please upload a CSV file.", dash.no_update, filename
     try:
@@ -201,6 +202,7 @@ def parse_uploaded_data(contents, filename):
     prevent_initial_call=True
 )
 def load_default_dataset(fname):
+    """Load one of the provided default datasets."""
     # if "(custom upload)" in fname:
     #     return dash.no_update, dash.no_update
     if fname is None: # > result of "Clear value"
@@ -215,7 +217,7 @@ def load_default_dataset(fname):
     prevent_initial_call=True
 )
 def update_target_selector(json_data):
-    """Updates the target selector fields and the default value."""
+    """Updates the target selector fields and the default value when a new dataset is loaded."""
     # Parse json data
     if json_data is None:
         return dash.no_update
@@ -230,7 +232,7 @@ def update_target_selector(json_data):
     prevent_initial_call=True
 )
 def infer_learning_task(target, json_data):
-    """Automatically infer the learning task from the selected target."""
+    """Automatically infer the learning task from the selected target when a different target is chosen."""
     # Parse json data
     if json_data is None:
         return dash.no_update
@@ -249,7 +251,7 @@ def infer_learning_task(target, json_data):
     prevent_initial_call=True
 )
 def disable_train_button(_):
-    """Disable the training button when it is clicked."""
+    """Disable the training button when it is clicked (to avoid multiple presses while the model is being trained)."""
     return True
 
 @callback(
@@ -258,7 +260,7 @@ def disable_train_button(_):
     prevent_initial_call=True
 )
 def change_train_button_style(is_disabled):
-    """Change styling of the training button based on disabled status."""
+    """Change styling of the training button based on disabled status (to show the user that the button is disabled)."""
     if is_disabled:
         return "button disabled"
     else:
@@ -280,9 +282,7 @@ def change_train_button_style(is_disabled):
     State('max-features', "value"),
     prevent_initial_call=True)
 def train_random_forest(is_disabled, session_id, json_data, target, task, n_trees, max_depth, max_features): # , config):
-    """
-    Train the random forest.
-    """
+    """Train the random forest."""
     # Button was set to "enabled", so no trigger for callback.
     if not is_disabled:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
