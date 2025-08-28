@@ -72,7 +72,7 @@ deploy_bellatrexplorer_dev:
     - bellatrexplorer-dev
   environment:
     name: develop
-    url: https://www.t.kulak.kuleuven.be/bellatrexplorer
+    url: https://bellatrexplorer.t.kulak.kuleuven.be/
 # deploy when commit to main branch
 deploy_bellatrexplorer_prod:
   stage: deploy
@@ -88,5 +88,5 @@ deploy_bellatrexplorer_prod:
     - bellatrexplorer-prod
   environment:
     name: production
-    url: https://www.kulak.kuleuven.be/bellatrexplorer
+    url: https://bellatrexplorer.kulak.kuleuven.be/
   

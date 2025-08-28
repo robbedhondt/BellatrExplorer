@@ -2,7 +2,7 @@
 
 <img src="src/assets/screenshots/dashboard_v2.png" alt="Dashboard Screenshot" style="max-width: 800px;"/>
 
-## Installation
+## Installation (for local usage)
 First of all, clone this repository in your place of preference:
 ```bash
 git clone https://github.com/robbedhondt/BellatrExplorer
@@ -25,4 +25,4 @@ From the root directory of this project, while the virtual environment is active
 python src/app.py
 ```
 
-The app will now be available on http://127.0.0.1:8050/.
+The app will now be available on http://127.0.0.1:8091/.
