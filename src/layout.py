@@ -3,6 +3,7 @@ import time
 from dash import html
 from dash import dcc, dash_table
 import config
+from utils import model2hex
 
 def make_app_layout(defaults):
     return html.Div(style={"padding": "0px", "margin": "0px"}, children=[
@@ -46,12 +47,16 @@ def make_app_layout(defaults):
         ),
         # Data stored on the client side to be used across multiple callbacks:
         dcc.Store(id='dataframe', storage_type='memory', data=defaults["json-df"]  ),
-        # dcc.Store(id='model', storage_type='memory', data=model2hex(defaults["hex-model"])),
-        # dcc.Store(id='btrex', storage_type='memory', data=model2hex(defaults["btrex"]    )),
-        # dcc.Store(id='expl' , storage_type='memory', data=model2hex(defaults["expl"]     )),
         dcc.Store(id='rules'    , storage_type='memory', data=defaults["rules"]    ), # NOTE only used for currently inactive hover callback
         # dcc.Store(id='svg-btrex', storage_type='memory', data=defaults["fig-svg"]),
         dcc.Store(id="pred-train", storage_type="memory", data=defaults["y_pred_train"]),
+
+        # Serialized objects, to be retrieved upon cache expiry
+        dcc.Store(id="session-id", storage_type="session", data="not-assigned"),
+        html.Button("...", id="button-session-id"),
+        # dcc.Store(id='model', storage_type='memory', data=model2hex(defaults["model"])),
+        # dcc.Store(id='btrex', storage_type='memory', data=model2hex(defaults["btrex"])),
+        # dcc.Store(id='expl' , storage_type='memory', data=model2hex(defaults["expl"] )),
 
         # Event listeners
         dcc.Store(id="cache-model", storage_type="memory", data=time.time()),
@@ -64,9 +69,25 @@ def get_header():
         html.Div(className="header-content", children=[
             html.H1("BellatrExplorer"), 
             html.Div(style={"textAlign":"left", "margin":"10px"}, children=[
-                "Bellatrex publication: ",
-                html.A("DOI 10.1109/ACCESS.2023.3268866", href="https://doi.org/10.1109/ACCESS.2023.3268866")
-            ])
+                # TODO: change into a table so everything is aligned more nicely
+                # Line 1
+                "Bellatrex materials: ",
+                html.A("publication", href="https://doi.org/10.1109/ACCESS.2023.3268866"),
+                # " (DOI 10.1109/ACCESS.2023.3268866), ",
+                " • ",
+                html.A("source code", href="https://github.com/KlestDedja/Bellatrex"),
+                " • ",
+                html.A("how to read the graph", href="https://itec.kuleuven-kulak.be/a-guide-to-bellatrex/"),
+                html.Br(),
+                # Line 2
+                "BellatrExplorer materials: ",
+                "publication (coming)",
+                # html.A("publication", ...),
+                " • ",
+                html.A("source code", href="https://github.com/robbedhondt/BellatrExplorer"),
+                " • ",
+                html.A("demo video", href="https://itec.kuleuven-kulak.be/bellatrexplorer/"),
+            ]),
         ]),
         html.Div(className="logos", children=[
             html.Img(src="assets/logos/combined.png", style={'height': '100pt', "margin":"10px"}),

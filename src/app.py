@@ -10,10 +10,9 @@ import matplotlib.pyplot as plt
 import dash
 from dash import Dash, Input, Output, State, callback, Patch
 from flask_caching import Cache
-from flask import session
 import config
 from layout import make_app_layout
-from utils import json2pandas, pandas2json, split_input_output
+from utils import json2pandas, pandas2json, split_input_output, current_time
 from modeling import (RandomForest, init_btrex, fit_btrex,
     generate_neighborhood_predictions, generate_rules)
 from data_io import dump_to_cache, load_from_cache
@@ -33,23 +32,12 @@ matplotlib.use("Agg")
 # Initialize the app
 app = Dash(__name__) #, prevent_initial_callbacks="initial_duplicate")
 app.title = "BellatrExplorer"
-# server = app.server
-app.server.secret_key = os.environ.get("SECRET_KEY", "dev-only-key")
+# app.server.secret_key = os.environ.get("SECRET_KEY", "dev-only-key")
+# NOTE: because information doesn't have to be persistent across sessions,
+#       we randomly generate the secret key on app startup
+app.server.secret_key = os.urandom(16)
 
-# @app.server.before_request
-# def get_session_id():
-#     if "uid" not in session:
-#         session["uid"] = str(uuid.uuid4())
-#     return session["uid"]
-
-# session_id = get_session_id()
-
-@app.server.before_request
-def assign_user_id():
-    if 'user_id' not in session:
-        session['user_id'] = str(uuid.uuid4())
-
-def load_defaults(scenario=3):
+def load_defaults(scenario=0):
     """Initialize defaults for dataframe and figures"""
     # Parameters
     if scenario == 0:
@@ -74,7 +62,8 @@ def load_defaults(scenario=3):
     # Load data and fit forest
     df = pd.read_csv(os.path.join(config.PATH_ASSETS, "data", fname))
     X, y = split_input_output(df, target)
-    rf = RandomForest(task=task, random_state=42, n_estimators=config.DEFAULT_N_TREES, max_depth=config.DEFAULT_MAX_DEPTH, max_features=config.DEFAULT_MAX_FEATURES)
+    rf = RandomForest(task=task, random_state=42, n_estimators=config.DEFAULT_N_TREES, 
+        max_depth=config.DEFAULT_MAX_DEPTH, max_features=config.DEFAULT_MAX_FEATURES)
     rf.fit(X, y)
     y_pred_train = rf.predict(X)
 
@@ -130,12 +119,22 @@ defaults = load_defaults()
 # Set up storage cache (later: to scale up to multi-process: use Redis or memcached)
 cache = Cache(app.server, config={
     "CACHE_TYPE": "simple",
-    "CACHE_DEFAULT_TIMEOUT": 600
+    "CACHE_DEFAULT_TIMEOUT": 600 # in seconds
 })
 
-dump_to_cache(cache, defaults["model"], "model")
-dump_to_cache(cache, defaults["btrex"], "btrex")
-dump_to_cache(cache, defaults["expl"] , "expl" )
+# # NOTE: The following Flask solution should also work to keep all sessions
+# # separate. It would result in cleaner code, i.e., instead of adding the dcc
+# # Store with the session ID into every callback, we can just use
+# # `session.get("session_id")`. However, the "session" would then be per-browser
+# # instead of per-tab.
+# # NOTE: needs `from flask import session` in the preamble
+# @app.server.before_request
+# def assign_session_id():
+#     if 'session_id' not in session:
+#         session['session_id'] = str(uuid.uuid4())
+#         dump_to_cache(cache, session.get("session_id"), defaults["model"], "model")
+#         dump_to_cache(cache, session.get("session_id"), defaults["btrex"], "btrex")
+#         dump_to_cache(cache, session.get("session_id"), defaults["expl"] , "expl" )
 
 # App layout
 app.layout = make_app_layout(defaults)
@@ -146,12 +145,31 @@ app.layout = make_app_layout(defaults)
 #  | |__| (_| | | | |_) | (_| | (__|   <\__ \
 #   \____\__,_|_|_|_.__/ \__,_|\___|_|\_\___/
 
-# @app.callback(Input("url", "pathname"))
-# def init_cache(_):
-#     """Lazy loading: dump defaults to cache only when session has initialized properly."""
-#     dump_to_cache(cache, defaults["model"], "model")
-#     dump_to_cache(cache, defaults["btrex"], "btrex")
-#     dump_to_cache(cache, defaults["expl"] , "expl" )
+# @app.callback(
+#     Output("button-session-id", "children"),
+#     Input("button-session-id", "n_clicks"), # any input, just to trigger on load
+#     prevent_initial_call="initial_duplicate"
+# )
+# def display_session_id(_):
+#     """Error checking: display flask session ID in button text."""
+#     return session.get("session_id")
+
+@app.callback(
+    Output("session-id", "data"),
+    Output("button-session-id", "children"),
+    Input("button-session-id", "n_clicks"), # any input, just to trigger on load
+    State("session-id", "data"),
+    # prevent_initial_call="initial_duplicate"
+)
+def init_session(_, session_id):
+    """Generate a session ID (unique tab identifier) and fill up the cache."""
+    if session_id == "not-assigned":
+        session_id = str(uuid.uuid4())
+        print(f"{current_time()} [INFO] New user found, assigning {session_id}")
+        dump_to_cache(cache, session_id, defaults["model"], "model")
+        dump_to_cache(cache, session_id, defaults["btrex"], "btrex")
+        dump_to_cache(cache, session_id, defaults["expl"] , "expl" )
+    return session_id, session_id
 
 @callback(
     Output('dataframe', 'data', allow_duplicate=True),
@@ -252,14 +270,16 @@ def change_train_button_style(is_disabled):
     Output('train-button', 'disabled' , allow_duplicate=True),
     Output('user-feedback', 'children', allow_duplicate=True),
     Input('train-button', 'disabled'),
+    State("session-id", "data"),
     State('dataframe', 'data'),
     State('target-selector', 'value'),
     State('learning-task', 'value'),
+    # TODO: somehow merge these sliders under a single HTML object "RF_params"?
     State("n-trees", "value"),
     State('max-depth', "value"),
     State('max-features', "value"),
     prevent_initial_call=True)
-def train_random_forest(is_disabled, json_data, target, task, n_trees, max_depth, max_features): # , config):
+def train_random_forest(is_disabled, session_id, json_data, target, task, n_trees, max_depth, max_features): # , config):
     """
     Train the random forest.
     """
@@ -277,7 +297,7 @@ def train_random_forest(is_disabled, json_data, target, task, n_trees, max_depth
             max_depth=max_depth, max_features=max_features)
         rf.fit(X, y)
         y_pred_train = rf.predict(X)
-        dump_to_cache(cache, rf, "model")
+        dump_to_cache(cache, session_id, rf, "model")
         return time.time(), y_pred_train, False, "✅ Forest trained successfully!"
     except Exception as e:
         # Prevent softlock due to model fit failing
@@ -292,12 +312,13 @@ def train_random_forest(is_disabled, json_data, target, task, n_trees, max_depth
         Output('svg-btrex', 'srcDoc', allow_duplicate=True),
     ],
     Input('cache-model', 'data'),
+    State("session-id", "data"),
     State('dataframe', 'data'),
     State('target-selector', 'value'),
     State('slider-max-depth', 'value'),
     State('pred-train', 'data'),
     prevent_initial_call=True)
-def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
+def init_sliders_table_figures(_, session_id, json_data, target, max_depth, y_pred_train):
     """
     Modeling has finished: handle the change of dataset and accompanying random
     forest by generating instance sliders, updating the data table, and re-
@@ -318,14 +339,14 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
               for slider in sliders}
     sample = pd.DataFrame(sample, index=[0])
     # Generate rules
-    rf = load_from_cache(cache, "model")
+    rf = load_from_cache(cache, session_id,  "model")
     rules = generate_rules(rf, sample)
     fig_all_rules = init_rules_graph(rules, y_pred_train)
     # Generate bellatrex figure
     btrex = init_btrex(rf, X, y)
     expl = fit_btrex(btrex, sample)
-    dump_to_cache(cache, btrex, "btrex")
-    dump_to_cache(cache, expl, "expl")
+    dump_to_cache(cache, session_id, btrex, "btrex")
+    dump_to_cache(cache, session_id, expl, "expl")
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return sliders, data_table, fig_all_rules, svg
 
@@ -334,15 +355,16 @@ def init_sliders_table_figures(_, json_data, target, max_depth, y_pred_train):
     Output({'type': 'slider-gradient', 'index': dash.ALL}, 'style'),
     Input({'type': 'slider', 'index': dash.ALL}, 'value'),
     State({'type': 'slider', 'index': dash.ALL}, 'id'),
+    State("session-id", "data"),
     State('dataframe', 'data'),
     State('target-selector', 'value'),
     State('pred-train', 'data'),
     prevent_initial_call=True
 )
-def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_train):
+def update_neighbor_plot(slider_values, slider_ids, session_id, json_data, target, y_pred_train):
     df = json2pandas(json_data)
     X, _ = split_input_output(df, target)
-    rf = load_from_cache(cache, "model")
+    rf = load_from_cache(cache, session_id, "model")
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
     y_pred_neighborhood = generate_neighborhood_predictions(rf, X, sample)
@@ -357,13 +379,14 @@ def update_neighbor_plot(slider_values, slider_ids, json_data, target, y_pred_tr
     Output('rules', 'data'),
     Input({'type': 'slider', 'index': dash.ALL}, 'value'),
     State({'type': 'slider', 'index': dash.ALL}, 'id'),
+    State("session-id", "data"),
     # State('model', 'data'),
     State("pred-train", "data"),
     prevent_initial_call=True
 )
-def update_rules_graph(slider_values, slider_ids, y_pred_train):
+def update_rules_graph(slider_values, slider_ids, session_id, y_pred_train):
     """Update the graph with all rules on a slider change."""
-    rf = load_from_cache(cache, "model")
+    rf = load_from_cache(cache, session_id, "model")
 
     # Generate sample from slider values
     features = [slider['index'] for slider in slider_ids]
@@ -393,37 +416,39 @@ def update_rules_graph(slider_values, slider_ids, y_pred_train):
 @callback(
     Output('svg-btrex', 'srcDoc', allow_duplicate=True),
     Input('graph-rules', 'figure'), # only when that one finished
+    State("session-id", "data"),
     State({'type': 'slider', 'index': dash.ALL}, 'value'),
     State({'type': 'slider', 'index': dash.ALL}, 'id'),
     State('slider-max-depth', 'value'),
     State('pred-train', 'data'),
     prevent_initial_call=True
 )
-def update_btrex_graph(_, slider_values, slider_ids, max_depth, y_pred_train):
+def update_btrex_graph(_, session_id, slider_values, slider_ids, max_depth, y_pred_train):
     """Update the bellatrex graph when the rules graph finished updating."""
     # Load data from inputs
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
-    btrex = load_from_cache(cache, "btrex")
+    btrex = load_from_cache(cache, session_id, "btrex")
     # rf = load_from_cache(cache, "model")
 
     # Generate bellatrex figure
     expl = fit_btrex(btrex, sample)
-    dump_to_cache(cache, expl, "expl")
+    dump_to_cache(cache, session_id, expl, "expl")
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return svg
 
 @callback(
     Output('svg-btrex', 'srcDoc', allow_duplicate=True),
     Input('slider-max-depth', 'value'),
+    State("session-id", "data"),
     State('pred-train', 'data'),
     prevent_initial_call=True
 )
-def update_btrex_depth(max_depth, y_pred_train):
+def update_btrex_depth(max_depth, session_id, y_pred_train):
     """Update the bellatrex graph when a new max_depth is selected."""
     # NOTE: can be integrated into `update_btrex_graph` with callback_context
     # (although then it will take more input arguments so more data transferred)
-    expl = load_from_cache(cache, "expl")
+    expl = load_from_cache(cache, session_id, "expl")
     svg = plot_btrex_svg(expl, y_pred_train=y_pred_train, plot_max_depth=max_depth)
     return svg
 
@@ -454,13 +479,16 @@ def update_btrex_depth(max_depth, y_pred_train):
 
 # Run the app
 if __name__ == '__main__':
+    # TODO: debug = False should only be on the production branch...
     if config.IS_DEPLOYED:
         host = '0.0.0.0'
+        debug = False
     else:
         host = '127.0.0.1'
+        debug = True
 
     app.run(
         port=8091,
         host=host,
-        debug=True
+        debug=debug
     )

@@ -6,24 +6,14 @@ from flask import session
 import config
 from utils import current_time, surv2single
 
-def get_cache_key(name):
-    """Get the unique cache key for object `name`.
+def get_cache_key(session_id, name):
+    """Get the cache key for session `session_id` and object `name`.
     
+    @param session_id: The ID of the current session.
     @param name: The name of the object to get the cache key for.
-    @return: The cache key, simply {name} in a localhost environment or
-        {name}_{user_id} in case the application is currently deployed on a 
-        web server (see `config.IS_DEPLOYED`).
+    @return: The cache key, currently simply {session_id}_{name}.
     """
-    # # TODO: this does not work yet, see error message:
-    # # > RuntimeError: Working outside of request context.
-    # #
-    # # > This typically means that you attempted to use functionality that needed
-    # # > an active HTTP request. Consult the documentation on testing for
-    # # > information about how to avoid this problem.
-    # if config.IS_DEPLOYED:
-    #     user_id = session.get('user_id', 'default')
-    #     return f"{name}_{user_id}"
-    return name
+    return f"{session_id}_{name}"
 
 def cleanup_temp_files():
     """Clean up the folder of temporary files.
@@ -51,26 +41,35 @@ def cleanup_temp_files():
     #     for f in files:
     #         os.unlink(os.path.join(root, f))
 
-def dump_to_cache(cache, obj, name):
+def dump_to_cache(cache, session_id, obj, name):
     """Dumps the given object to cache and a temporary pickle file.
 
+
     @param cache: A Flask cache object.
+    @param session_id: The ID of the current session.
     @param obj: The object to be dumped.
     @param name: The name of the object to be dumped.
     @post: A call to `cleanup_temp_files` was made.
     @post: The object was saved to the cache.
     @post: The object was pickled to `temp/{get_cache_key(name)}.pkl`.
     """
+    # TODO: Should the pickle file dump be changed by dumping into the dcc Store
+    # instead? Would offload model storage onto the client, but doesn't work /
+    # will be very slow for large models (however that should not be a problem
+    # since this backup is only used to fill in expired cache). Alternatively,
+    # on a cache expiry you can also just ask the user to retrain the model?
+
     cleanup_temp_files()
-    key = get_cache_key(name)
+    key = get_cache_key(session_id, name)
     fpath = os.path.join(config.PATH_TEMP , f"{key}.pkl")
     pickle.dump(obj, open(fpath, "wb"))
     cache.set(key, obj)
 
-def load_from_cache(cache, name):
+def load_from_cache(cache, session_id, name):
     """Load the given object from cache.
     
     @param cache: A Flask cache object.
+    @param session_id: The ID of the current session.
     @param name: The name of the object to be loaded.
     @pre: The object was saved as a pickle file in the temp/ directory under
         `{get_cache_key(name)}.pkl`.
@@ -78,7 +77,7 @@ def load_from_cache(cache, name):
         if the cache has expired. Returns None if not found in cache nor in a
         pickle file.
     """
-    key = get_cache_key(name)
+    key = get_cache_key(session_id, name)
     model = cache.get(key)
     if model is None:
         try:
@@ -87,7 +86,9 @@ def load_from_cache(cache, name):
             cache.set(name, model)
             print(f"{current_time()} [INFO] Cache invalid, loaded '{name}' from pickle file.")
         except FileNotFoundError:
-            print(f"{current_time()} [WARNING] File '{name}' not found in cache or in pickle file.")
+            # TODO: handle model not found behavior? should notify the user that
+            # something went wrong...
+            print(f"{current_time()} [WARNING] File '{name}' not found in cache or in pickle file ({key}).")
             model = None
     return model
 
