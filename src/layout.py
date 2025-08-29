@@ -52,7 +52,7 @@ def make_app_layout(defaults):
         dcc.Store(id="pred-train", storage_type="memory", data=defaults["y_pred_train"]),
 
         # Serialized objects, to be retrieved upon cache expiry
-        dcc.Store(id="session-id", storage_type="session", data="not-assigned"),
+        dcc.Store(id="session-id", storage_type="memory", data="not-assigned"),
         html.Button("...", id="button-session-id"),
         # dcc.Store(id='model', storage_type='memory', data=model2hex(defaults["model"])),
         # dcc.Store(id='btrex', storage_type='memory', data=model2hex(defaults["btrex"])),
