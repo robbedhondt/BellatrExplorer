@@ -114,7 +114,7 @@ def load_defaults(scenario=0):
         "y_pred_train": y_pred_train,
     }
 
-defaults = load_defaults(scenario=2)
+defaults = load_defaults(scenario=1)
 
 # Set up storage cache (later: to scale up to multi-process: use Redis or memcached)
 cache = Cache(app.server, config={
