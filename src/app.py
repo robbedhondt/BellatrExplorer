@@ -14,7 +14,7 @@ import config
 from layout import make_app_layout
 from utils import json2pandas, pandas2json, split_input_output, current_time
 from modeling import (RandomForest, init_btrex, fit_btrex,
-    generate_neighborhood_predictions, generate_rules)
+    generate_neighborhood_predictions, generate_rules, is_valid)
 from data_io import dump_to_cache, load_from_cache
 from visuals import (generate_sliders, generate_feature_slider_impacts,
     generate_slider_gradients, init_rules_graph, plot_btrex_svg)
@@ -271,6 +271,7 @@ def change_train_button_style(is_disabled):
     Output('pred-train', 'data'),
     Output('train-button', 'disabled' , allow_duplicate=True),
     Output('user-feedback', 'children', allow_duplicate=True),
+    Output('training-setup', 'data'),
     Input('train-button', 'disabled'),
     State("session-id", "data"),
     State('dataframe', 'data'),
@@ -285,24 +286,31 @@ def train_random_forest(is_disabled, session_id, json_data, target, task, n_tree
     """Train the random forest."""
     # Button was set to "enabled", so no trigger for callback.
     if not is_disabled:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
     # Parse json data
     if json_data is None:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
     df = json2pandas(json_data)
     # Train the random forest
     try:
+        training_setup = {
+            "target"      : target,
+            "task"        : task,
+            "n_trees"     : n_trees,
+            "max_depth"   : max_depth,
+            "max_features": max_features,
+        }
         X, y = split_input_output(df, target)
         rf = RandomForest(task, random_state=42, n_estimators=n_trees, 
             max_depth=max_depth, max_features=max_features)
         rf.fit(X, y)
         y_pred_train = rf.predict(X)
         dump_to_cache(cache, session_id, rf, "model")
-        return time.time(), y_pred_train, False, "✅ Forest trained successfully!"
+        return time.time(), y_pred_train, False, "✅ Forest trained successfully!", training_setup
     except Exception as e:
         # Prevent softlock due to model fit failing
         print(f"[ERR]: {e}")
-        return dash.no_update, dash.no_update, False, f"❌ Error fitting model: {str(e)}"
+        return dash.no_update, dash.no_update, False, f"❌ Error fitting model: {str(e)}", dash.no_update
 
 @callback(
     [
@@ -353,44 +361,61 @@ def init_sliders_table_figures(_, session_id, json_data, target, max_depth, y_pr
 @callback(
     Output("graph-slider-impact", "figure"),
     Output({'type': 'slider-gradient', 'index': dash.ALL}, 'style'),
+    # # NOTE: Including the following line results in some kind of error with 
+    # # duplicate callbacks, so the line is dropped. Note that we don't need to
+    # # write to user-feedback since `update_rules_graph` already does that!
+    # Output('user-feedback', 'children', allow_duplicate=True),
     Input({'type': 'slider', 'index': dash.ALL}, 'value'),
     State({'type': 'slider', 'index': dash.ALL}, 'id'),
     State("session-id", "data"),
     State('dataframe', 'data'),
-    State('target-selector', 'value'),
+    State('training-setup', 'data'),
     State('pred-train', 'data'),
     prevent_initial_call=True
 )
-def update_neighbor_plot(slider_values, slider_ids, session_id, json_data, target, y_pred_train):
-    df = json2pandas(json_data)
-    X, _ = split_input_output(df, target)
-    rf = load_from_cache(cache, session_id, "model")
+def update_neighbor_plot(slider_values, slider_ids, session_id, json_data, training_setup, y_pred_train):
+    """Change the neighborhood prediction plot and slider gradients upon local instance slider change."""
+    # TODO merge this function with `update_rules_graph`? a lot of duplicate loading...
+    # Generate sample from slider values
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
+
+    # Load dataset and random forest
+    df = json2pandas(json_data)
+    X, _ = split_input_output(df, training_setup["target"])
+    rf = load_from_cache(cache, session_id, "model")
+    if not is_valid(rf, sample, training_setup):
+        return dash.no_update, dash.no_update #, "❌ Something went wrong. Please try refitting the model."
+
+    # Generate neighborhood prediction plot and slider gradients
     y_pred_neighborhood = generate_neighborhood_predictions(rf, X, sample)
-    # Generate figure with impacts
     fig = generate_feature_slider_impacts(rf, X, sample, y_pred_neighborhood)
-    # Generate slider gradients
     slider_gradients = generate_slider_gradients(X, y_pred_neighborhood, y_pred_train)
-    return fig, slider_gradients
+    return fig, slider_gradients # , dash.no_update
 
 @callback(
     Output('graph-rules', 'figure'),
     Output('rules', 'data'),
+    Output('user-feedback', 'children', allow_duplicate=True),
     Input({'type': 'slider', 'index': dash.ALL}, 'value'),
     State({'type': 'slider', 'index': dash.ALL}, 'id'),
     State("session-id", "data"),
     # State('model', 'data'),
+    State('training-setup', 'data'),
     State("pred-train", "data"),
     prevent_initial_call=True
 )
-def update_rules_graph(slider_values, slider_ids, session_id, y_pred_train):
+def update_rules_graph(slider_values, slider_ids, session_id, training_setup, y_pred_train):
     """Update the graph with all rules on a slider change."""
-    rf = load_from_cache(cache, session_id, "model")
-
     # Generate sample from slider values
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
+
+    # Load the random forest
+    rf = load_from_cache(cache, session_id, "model")
+    if not is_valid(rf, sample, training_setup):
+        return dash.no_update, dash.no_update, "❌ Something went wrong. Please try refitting the model."
+    # TODO ^this error handling should also happen when adapting Bellatrex depth
 
     # Generate rules from sample
     rules = generate_rules(rf, sample)
@@ -410,7 +435,7 @@ def update_rules_graph(slider_values, slider_ids, session_id, y_pred_train):
         patched_fig["data"][j]["customdata"] = rules.loc[j, ["tree", splitinfo]].values
         leaf_pred = rules.loc[j, 'Prediction'].iloc[-1]
         patched_fig["data"][j]["line"]["color"] = color(leaf_pred)
-    return patched_fig, rules.to_json(date_format='iso', orient='split')
+    return patched_fig, rules.to_json(date_format='iso', orient='split'), dash.no_update
 
 
 @callback(
@@ -428,6 +453,9 @@ def update_btrex_graph(_, session_id, slider_values, slider_ids, max_depth, y_pr
     # Load data from inputs
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
+    # NOTE: in principle we should do cache validation on btrex, but this 
+    # callback only runs when `graph-rules` has changed, which only happens when 
+    # the cache is valid (checked in `update_rules_graph`).
     btrex = load_from_cache(cache, session_id, "btrex")
     # rf = load_from_cache(cache, "model")
 

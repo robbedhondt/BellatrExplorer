@@ -50,10 +50,20 @@ def make_app_layout(defaults):
         dcc.Store(id='rules'    , storage_type='memory', data=defaults["rules"]    ), # NOTE only used for currently inactive hover callback
         # dcc.Store(id='svg-btrex', storage_type='memory', data=defaults["fig-svg"]),
         dcc.Store(id="pred-train", storage_type="memory", data=defaults["y_pred_train"]),
+        # This store contains the configuration of the "modeling" panel at time of model training
+        dcc.Store(id="training-setup", storage_type="memory", data={
+            "target"      : defaults["target" ],
+            "task"        : defaults["task"   ],
+            "n_trees"     : config.DEFAULT_N_TREES,
+            "max_depth"   : config.DEFAULT_MAX_DEPTH,
+            "max_features": config.DEFAULT_MAX_FEATURES,
+        }),
 
         # Serialized objects, to be retrieved upon cache expiry
         dcc.Store(id="session-id", storage_type="memory", data="not-assigned"),
         html.Button("...", id="button-session-id"),
+        # # Better not: from documentation "It's generally safe to store up to 2MB
+        # # in most environments, and 5~10MB in most desktop-only applications."
         # dcc.Store(id='model', storage_type='memory', data=model2hex(defaults["model"])),
         # dcc.Store(id='btrex', storage_type='memory', data=model2hex(defaults["btrex"])),
         # dcc.Store(id='expl' , storage_type='memory', data=model2hex(defaults["expl"] )),

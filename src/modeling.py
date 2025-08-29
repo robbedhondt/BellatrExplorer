@@ -226,3 +226,33 @@ def generate_neighborhood_predictions(rf, X, sample):
     )).rename("Value").reset_index()
     y_pred = pd.Series(rf.predict(neighborhood), index=pd.MultiIndex.from_frame(index))
     return y_pred
+
+def is_valid(rf, sample, training_setup):
+    """
+    Check if the given random forest is a valid random forest w.r.t. the given
+    dataset sample and training setup (i.e., does the cached model correspond
+    to the current state of the dashboard).
+
+    Currently used in a very simple way: just tell the user to retrain in case
+    it does not correspond. A potential pattern for using this function in a
+    more complex way in which the "default model" is also tested is as follows:
+    ```python
+    if not is_valid(rf, X.iloc[[0]], training_setup):
+        if not is_valid(defaults["model"], X.iloc[[0]], training_setup):
+            return dash.no_update, dash.no_update, "❌ Something went wrong. Please try refitting the model."
+        print(f"{current_time()} [INFO] Resetting the cache by default values")
+        rf = defaults["model"]
+        dump_to_cache(cache, session_id, defaults["model"], "model")
+        dump_to_cache(cache, session_id, defaults["btrex"], "btrex")
+        dump_to_cache(cache, session_id, defaults["expl"] , "expl" )
+    ```
+    """
+    try:
+        _ = rf.predict(sample) # just a dummy to see if predict works
+        assert rf.task            == training_setup["task"]
+        assert rf.n_estimators    == training_setup["n_trees"]
+        assert rf.rf.max_depth    == training_setup["max_depth"]
+        assert rf.rf.max_features == training_setup["max_features"]
+    except ValueError:
+        return False
+    return True
