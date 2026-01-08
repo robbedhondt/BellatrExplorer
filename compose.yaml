@@ -9,5 +9,7 @@ services:
   server:
     build:
       context: .
+    restart: always
+    container_name: bellatrexplorer
     ports:
       - 8091:8091
