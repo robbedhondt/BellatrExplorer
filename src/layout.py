@@ -87,7 +87,7 @@ def get_header():
                 html.Br(),
                 # Line 2
                 "• BellatrExplorer materials:",
-                " 📝 ", "publication (coming)", # html.A("publication", ...),
+                " 📝 ", html.A("publication", href="https://doi.org/10.1007/978-3-032-06129-4_32"),
                 " 💻 ", html.A("source code", href="https://github.com/robbedhondt/BellatrExplorer"),
                 " 💡 ", html.A("demo video", href="https://itec.kuleuven-kulak.be/bellatrexplorer/"),
             ]),
