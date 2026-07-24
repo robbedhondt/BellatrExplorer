@@ -49,5 +49,5 @@ ENV DEPLOYED=True
 EXPOSE 8091
 
 # Run the application.
-# CMD python src/app.py
-CMD ["gunicorn", "--chdir", "src", "--bind", "0.0.0.0:8091", "app:app"]
+CMD python src/app.py
+# CMD ["gunicorn", "--chdir", "src", "--bind", "0.0.0.0:8091", "app:app"]
