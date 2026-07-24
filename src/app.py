@@ -182,6 +182,8 @@ def init_session(_, session_id):
 )
 def parse_uploaded_data(contents, filename):
     """Process a dataset uploaded by the user."""
+    if config.IS_DEPLOYED: # > don't allow triggering this callback
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
     if contents is None:
         return dash.no_update, "❌ Please upload a CSV file.", dash.no_update, filename
     try:
@@ -205,6 +207,9 @@ def load_default_dataset(fname):
     """Load one of the provided default datasets."""
     # if "(custom upload)" in fname:
     #     return dash.no_update, dash.no_update
+    allowed_datasets = os.listdir(os.path.join(os.path.dirname(__file__), "assets", "data"))
+    if fname not in allowed_datasets: # > don't allow posting an arbitrary file
+        return dash.no_update, dash.no_update, dash.no_update
     if fname is None: # > result of "Clear value"
         return dash.no_update, dash.no_update, dash.no_update
     df = pd.read_csv(os.path.join(config.PATH_ASSETS, "data", fname))
