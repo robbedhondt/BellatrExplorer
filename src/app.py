@@ -514,6 +514,7 @@ def update_btrex_depth(max_depth, session_id, y_pred_train):
 if __name__ == '__main__':
     # TODO: debug = False should only be on the production branch...
     if config.IS_DEPLOYED:
+        assert config.IS_PRODUCTION != "local"
         host = '0.0.0.0'
         debug = not config.IS_PRODUCTION
     else:
