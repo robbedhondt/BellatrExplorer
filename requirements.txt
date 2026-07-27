@@ -10,5 +10,5 @@ flask-caching
 # umap-learn
 # ipykernel
 scikit-survival
-bellatrex
+bellatrex == 0.3.1
 # gunicorn 
