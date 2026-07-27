@@ -22,6 +22,7 @@ PATH_TEMP   = os.path.join(os.path.dirname(__file__), "temp")
 
 # Environment variables
 IS_DEPLOYED = (os.getenv("DEPLOYED", default="False") == "True")
+IS_PRODUCTION = (os.environ.get("APP_ENV", "development") == "production")
 
 # Helper variables
 last_cleanup_time = time.time() - 3600

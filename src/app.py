@@ -515,7 +515,7 @@ if __name__ == '__main__':
     # TODO: debug = False should only be on the production branch...
     if config.IS_DEPLOYED:
         host = '0.0.0.0'
-        debug = False
+        debug = not config.IS_PRODUCTION
     else:
         host = '127.0.0.1'
         debug = True
