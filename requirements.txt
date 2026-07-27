@@ -20,7 +20,7 @@ executing==2.2.0
 Flask==3.0.3
 Flask-Caching==2.3.1
 fonttools==4.56.0
-gunicorn==21.2.0
+# gunicorn==21.2.0
 idna==3.10
 importlib_metadata==8.6.1
 importlib_resources==6.5.2
