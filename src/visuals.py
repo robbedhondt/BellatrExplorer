@@ -257,7 +257,7 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     # Change some other plot settings
     fig.update_layout(
         xaxis_title="Quantile of neighboring sample",
-        yaxis_title="Prediction",
+        yaxis_title=f"Prediction (current: {y_pred_sample:.3g})",
         legend_title="Feature",
         # title="Univariate Feature Effects on Sample Prediction",
         # xaxis_range=[0,1],

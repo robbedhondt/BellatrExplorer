@@ -381,6 +381,8 @@ def init_sliders_table_figures(_, session_id, json_data, target, max_depth, y_pr
 def update_neighbor_plot(slider_values, slider_ids, session_id, json_data, training_setup, y_pred_train):
     """Change the neighborhood prediction plot and slider gradients upon local instance slider change."""
     # TODO merge this function with `update_rules_graph`? a lot of duplicate loading...
+    #      (although this function loads df and X and update_rules_graph doesn't)
+    #      (then again, both functions are always triggered by the same input)
     # Generate sample from slider values
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
