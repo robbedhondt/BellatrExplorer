@@ -94,6 +94,7 @@ def load_from_cache(cache, session_id, name):
 
 def generate_sample_datasets():
     import pandas as pd
+    import kagglehub
     from ucimlrepo import fetch_ucirepo 
     from pathlib import Path 
     from sklearn.datasets import fetch_california_housing
@@ -138,7 +139,45 @@ def generate_sample_datasets():
 
     # WHAS500
     X, y = load_whas500()
+    # Reorder and rename columns
+    renamer = {
+        "age"   : "Age at admission",
+        "gender": "Gender",
+        "hr"    : "Initial heart rate",
+        "diasbp": "Initial diastolic BP (mmHg)",
+        "sysbp" : "Initial systolic BP (mmHg)",
+        "bmi"   : "BMI",
+        "cvd"   : "History of cardiovasc disease",
+        "afb"   : "Atrial fibrillation",
+        "sho"   : "Cardiogenic shock",
+        "chf"   : "Congestive heart complications",
+        "av3"   : "Complete Heart Block",
+        "miord" : "MI order", # MI = myocardial infarction = heart attack
+        "mitype": "MI type",
+        "los"   : "Length of hospital stay",
+    }
+    X = X.loc[:,list(renamer.keys())].rename(columns=renamer)
     y = surv2single(cens=y["fstat"], time_to_event=y["lenfol"])
     y = pd.Series(y, name="time_to_death")
     df = pd.concat((X,y), axis=1)
-    df.to_csv(Path("assets/data/whas500.csv"), index=False)
+    df.to_csv(Path("assets/data/heart_attack_worcester.csv"), index=False)
+
+    # Prepare Sepsis prediction dataset
+    # > Download
+    path = kagglehub.dataset_download("tea340yashjoshi/sepsis-prediction-dataset")
+    df = pd.read_csv(os.path.join(path, "Dataset.csv"), index_col=0)
+    # > Subset columns and dropna
+    df = df.set_index(["Patient_ID", "Hour"]).sort_index()
+    df = df[["Temp", "HR", "Resp", "SBP", "O2Sat", "SepsisLabel"]]
+    df = df.dropna() # 546123 rows --> 165212
+    # > Define X and time to event (y)
+    def get_time_to_event(df):
+        df = df.reset_index()
+        if not any(df.SepsisLabel):
+            return -df.Hour.max()
+        else:
+            return df.Hour[df.SepsisLabel.argmax()] - df.Hour.min()
+    y = df.groupby("Patient_ID").apply(get_time_to_event)
+    X = df.groupby("Patient_ID").first()
+    X["SepsisLabel"] = y
+    X.to_csv(Path("assets/data/time_to_sepsis.csv"), index=False)
