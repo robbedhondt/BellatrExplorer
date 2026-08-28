@@ -73,7 +73,7 @@ def init_btrex(rf, X, y):
         # NOTE quick fix because our "y" is 1 target with pos=event and neg=censored; bellatrex doesn't auto-detect that setup
         setup = "survival"
     btrex = BellatrexExplain(
-        rf_packed, set_up=setup, p_grid={"n_clusters": [1, 2, 3]}, verbose=-1)
+        rf_packed, set_up=setup, p_grid={"n_clusters": config.BTREX_N_CLUSTERS, "n_trees": config.BTREX_N_TREES}, verbose=-1)
     btrex.fit(X, y)
     return btrex
 
@@ -132,11 +132,13 @@ def generate_rules(rf, sample):
         # > tree.value is of shape n_nodes x n_outputs x n_classes
         #   > for regression n_classes is always 1
         #   > for survanal n_outputs is len(unique_times_)
-        values = tree.value[node_indices,:,-1]
-        if rf.task == "survival analysis":
+        if rf.task != "survival analysis":
+            values = tree.value[node_indices,:,-1]
+        else:
+            values = tree.value[node_indices,:,0]
             # values = aggregate_curves(values, rf.unique_times_, aggfunc=config.SURVIVAL_CURVE_AGGREGATION)
             # Integrate the CHF as partial predictions
-            values = (1 - values[:, rf.estimators_[t].is_event_time_]).sum(axis=1)
+            values = values[:, rf.estimators_[t].is_event_time_].sum(axis=1)
         rule_val[t] = values
 
     rule_len = [len(rule_val[t]) for t in range(n_trees)]

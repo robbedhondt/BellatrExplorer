@@ -64,6 +64,8 @@ build_bellatrexplorer_prod:
 deploy_bellatrexplorer_dev:
   stage: deploy
   extends: .deploy_bellatrexplorer
+  variables:
+    APP_ENV: development
   dependencies:
     - build_bellatrexplorer_dev
   rules:
@@ -77,6 +79,8 @@ deploy_bellatrexplorer_dev:
 deploy_bellatrexplorer_prod:
   stage: deploy
   extends: .deploy_bellatrexplorer
+  variables:
+    APP_ENV: production
   dependencies:
     - build_bellatrexplorer_prod
   rules:

@@ -17,11 +17,14 @@ YSCALE_NEIGHBORHOOD_GLOBAL = True
 DEFAULT_N_TREES = 100
 DEFAULT_MAX_DEPTH = 10
 DEFAULT_MAX_FEATURES = "sqrt"
+BTREX_N_TREES = [0.2]
+BTREX_N_CLUSTERS = [1, 2, 3]
 PATH_ASSETS = os.path.join(os.path.dirname(__file__), "assets")
 PATH_TEMP   = os.path.join(os.path.dirname(__file__), "temp")
 
 # Environment variables
 IS_DEPLOYED = (os.getenv("DEPLOYED", default="False") == "True")
+IS_PRODUCTION = (os.environ.get("APP_ENV", "local") == "production")
 
 # Helper variables
 last_cleanup_time = time.time() - 3600

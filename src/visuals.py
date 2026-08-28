@@ -32,10 +32,12 @@ def plot_btrex_svg(expl, y_pred_train=None, plot_max_depth=5):
     """
     if y_pred_train is not None:
         y_pred_train = np.array(y_pred_train)
-    fig, _ = expl.plot_visuals(
+    fig, axs = expl.plot_visuals(
         plot_max_depth=plot_max_depth, preds_distr=y_pred_train, 
         conf_level=0.9, tot_digits=4, show=False
     )
+    for j in range(axs.shape[1]):
+        axs[0,j].set_xlim(axs[1,j].get_xlim())
     # # This is not a clean transform, the text objects are not properly scaling
     # # (boxes are oversized when downsizing)
     # size = fig.get_size_inches()
@@ -86,7 +88,7 @@ def generate_sliders(X):
             #        selval: f'{selval:.2f}',
             #        maxval: f'{maxval:.2f}',},
             # marks=None,
-            marks={v:"" for v in quantiles},
+            marks={float(v):"" for v in quantiles},
             # Use the tooltip to indicate the current value
             tooltip={
                 "placement": "bottom", "always_visible": True, 
@@ -97,8 +99,11 @@ def generate_sliders(X):
         )
         sliders.append(html.Div([
             html.Label([col]),
-            html.Div(id={'type': 'slider-gradient', 'index': col}, 
-                className="slider-gradient", children=[slider_component])
+            html.Div(
+                id={'type': 'slider-gradient', 'index': col}, 
+                className="slider-gradient", 
+                children=[slider_component]
+            )
         ])) #, style={'marginBottom': '20px'}))
     # Return the sliders
     return sliders
@@ -257,7 +262,7 @@ def generate_feature_slider_impacts(rf, X, sample, y_pred):
     # Change some other plot settings
     fig.update_layout(
         xaxis_title="Quantile of neighboring sample",
-        yaxis_title="Prediction",
+        yaxis_title=f"Prediction (current: {y_pred_sample:.3g})",
         legend_title="Feature",
         # title="Univariate Feature Effects on Sample Prediction",
         # xaxis_range=[0,1],

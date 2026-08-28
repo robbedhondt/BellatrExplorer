@@ -9,5 +9,9 @@ services:
   server:
     build:
       context: .
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+    restart: always
+    container_name: bellatrexplorer
     ports:
       - 8091:8091

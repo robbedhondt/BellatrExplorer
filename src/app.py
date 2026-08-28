@@ -182,6 +182,8 @@ def init_session(_, session_id):
 )
 def parse_uploaded_data(contents, filename):
     """Process a dataset uploaded by the user."""
+    if config.IS_DEPLOYED: # > don't allow triggering this callback
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
     if contents is None:
         return dash.no_update, "❌ Please upload a CSV file.", dash.no_update, filename
     try:
@@ -205,6 +207,9 @@ def load_default_dataset(fname):
     """Load one of the provided default datasets."""
     # if "(custom upload)" in fname:
     #     return dash.no_update, dash.no_update
+    allowed_datasets = os.listdir(os.path.join(os.path.dirname(__file__), "assets", "data"))
+    if fname not in allowed_datasets: # > don't allow posting an arbitrary file
+        return dash.no_update, dash.no_update, dash.no_update
     if fname is None: # > result of "Clear value"
         return dash.no_update, dash.no_update, dash.no_update
     df = pd.read_csv(os.path.join(config.PATH_ASSETS, "data", fname))
@@ -376,6 +381,8 @@ def init_sliders_table_figures(_, session_id, json_data, target, max_depth, y_pr
 def update_neighbor_plot(slider_values, slider_ids, session_id, json_data, training_setup, y_pred_train):
     """Change the neighborhood prediction plot and slider gradients upon local instance slider change."""
     # TODO merge this function with `update_rules_graph`? a lot of duplicate loading...
+    #      (although this function loads df and X and update_rules_graph doesn't)
+    #      (then again, both functions are always triggered by the same input)
     # Generate sample from slider values
     features = [slider['index'] for slider in slider_ids]
     sample = pd.DataFrame(np.atleast_2d(slider_values), columns=features)
@@ -509,8 +516,9 @@ def update_btrex_depth(max_depth, session_id, y_pred_train):
 if __name__ == '__main__':
     # TODO: debug = False should only be on the production branch...
     if config.IS_DEPLOYED:
+        assert config.IS_PRODUCTION != "local"
         host = '0.0.0.0'
-        debug = False
+        debug = not config.IS_PRODUCTION
     else:
         host = '127.0.0.1'
         debug = True
