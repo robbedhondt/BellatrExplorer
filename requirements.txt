@@ -1,5 +1,5 @@
 asttokens==3.0.0
-bellatrex==0.2.3
+bellatrex==0.4.0
 blinker==1.9.0
 cachelib==0.13.0
 certifi==2025.1.31

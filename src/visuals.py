@@ -86,7 +86,7 @@ def generate_sliders(X):
             #        selval: f'{selval:.2f}',
             #        maxval: f'{maxval:.2f}',},
             # marks=None,
-            marks={v:"" for v in quantiles},
+            marks={float(v):"" for v in quantiles},
             # Use the tooltip to indicate the current value
             tooltip={
                 "placement": "bottom", "always_visible": True, 
@@ -97,8 +97,11 @@ def generate_sliders(X):
         )
         sliders.append(html.Div([
             html.Label([col]),
-            html.Div(id={'type': 'slider-gradient', 'index': col}, 
-                className="slider-gradient", children=[slider_component])
+            html.Div(
+                id={'type': 'slider-gradient', 'index': col}, 
+                className="slider-gradient", 
+                children=[slider_component]
+            )
         ])) #, style={'marginBottom': '20px'}))
     # Return the sliders
     return sliders
