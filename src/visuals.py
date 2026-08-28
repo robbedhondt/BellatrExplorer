@@ -32,10 +32,12 @@ def plot_btrex_svg(expl, y_pred_train=None, plot_max_depth=5):
     """
     if y_pred_train is not None:
         y_pred_train = np.array(y_pred_train)
-    fig, _ = expl.plot_visuals(
+    fig, axs = expl.plot_visuals(
         plot_max_depth=plot_max_depth, preds_distr=y_pred_train, 
         conf_level=0.9, tot_digits=4, show=False
     )
+    for j in range(axs.shape[1]):
+        axs[0,j].set_xlim(axs[1,j].get_xlim())
     # # This is not a clean transform, the text objects are not properly scaling
     # # (boxes are oversized when downsizing)
     # size = fig.get_size_inches()
