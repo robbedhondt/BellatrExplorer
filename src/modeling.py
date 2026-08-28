@@ -73,7 +73,7 @@ def init_btrex(rf, X, y):
         # NOTE quick fix because our "y" is 1 target with pos=event and neg=censored; bellatrex doesn't auto-detect that setup
         setup = "survival"
     btrex = BellatrexExplain(
-        rf_packed, set_up=setup, p_grid={"n_clusters": [1, 2, 3]}, verbose=-1)
+        rf_packed, set_up=setup, p_grid={"n_clusters": config.BTREX_N_CLUSTERS, "n_trees": config.BTREX_N_TREES}, verbose=-1)
     btrex.fit(X, y)
     return btrex
 

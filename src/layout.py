@@ -209,4 +209,10 @@ def get_btrex_pane(defaults):
         # html.Img(id="graph-btrex", src=app.get_asset_url("tmp_btrex.png"), 
         #     style={'width':'100%', 'max-height':'400px', 
         #     'object-fit':'contain'}),
+        # html.Div(className="container-selectionbox-with-label", children=[
+        #     html.Label("Number of trees:", htmlFor="slider-btrex-n-trees"),
+        #     html.Div(style={"flex": "1"}, children=[
+        #        dcc.RangeSlider(0.1, 1, 0.1, value=[0.2, 0.4], id="slider-btrex-n-trees"),
+        #     ]),
+        # ]),
     ]

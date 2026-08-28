@@ -197,7 +197,7 @@ h2 {
 
 /* Customizing slider appearance */
 .rc-slider-track {
-    background-color: white;
+    background-color: white; /* "gray" if you want to use rangeslider for btrex */
 }
 
 .rc-slider-rail {
